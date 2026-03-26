@@ -1,0 +1,36 @@
+{
+  "schema_version": "0.1",
+  "object_id": "ycb_025_mug",
+  "asset_version": "google_512k",
+  "input_type": "mesh",
+  "input_file": "assets/ycb/025_mug/google_512k/nontextured.ply",
+  "canonical_frame": {
+    "origin": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "axis_x": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "axis_y": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "axis_z": [
+      0.0,
+      0.0,
+      1.0
+    ]
+  },
+  "parts": [],
+  "affordances": [],
+  "contact_region_masks": [],
+  "candidate_poses": [],
+  "annotator": "고박사",
+  "review_status": "draft",
+  "updated_at": "2026-03-26T06:06:54.243769+00:00"
+}

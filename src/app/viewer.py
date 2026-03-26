@@ -86,27 +86,24 @@ class MeshViewer:
             return False
 
     def display_mesh(self, name: str = "object"):
-        """로드된 메시를 Viser scene에 표시"""
+        """로드된 메시를 Viser scene에 표시 (add_mesh_trimesh 사용)"""
         if self.loaded_mesh is None:
             print("[viewer] 표시할 메시가 없습니다. load_mesh()를 먼저 호출하세요.")
             return
 
         mesh = self.loaded_mesh
 
-        # 정점 색상: ColorVisuals가 아니면 기본 회색 사용
-        if hasattr(mesh.visual, 'vertex_colors') and mesh.visual.vertex_colors is not None:
-            vertex_colors = np.array(mesh.visual.vertex_colors, dtype=np.uint8)
-        else:
-            vertex_colors = np.full((len(mesh.vertices), 4), 180, dtype=np.uint8)
-            vertex_colors[:, 3] = 255
+        # TextureVisuals → ColorVisuals 변환 (기본 회색)
+        if not hasattr(mesh.visual, 'vertex_colors'):
+            mesh.visual = trimesh.visual.ColorVisuals(
+                mesh=mesh,
+                vertex_colors=np.full((len(mesh.vertices), 4), [180, 180, 180, 255], dtype=np.uint8),
+            )
 
-        # Viser에 메시 추가
-        self.mesh_handle = self.server.scene.add_mesh_simple(
+        # Viser에 trimesh 객체 직접 전달
+        self.mesh_handle = self.server.scene.add_mesh_trimesh(
             name=f"/object/{name}",
-            vertices=mesh.vertices.astype(np.float32),
-            faces=mesh.faces.astype(np.uint32),
-            color=(180, 180, 180),
-            wireframe=False,
+            mesh=mesh,
         )
         print(f"[viewer] 메시 표시: /object/{name}")
 

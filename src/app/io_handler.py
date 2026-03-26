@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+import jsonschema
+
 # JSON 스키마 위치
 SCHEMA_PATH = Path(__file__).parent.parent / "schemas" / "label_v0.1.json"
 LABELS_DIR = Path(__file__).parent.parent / "labels"
@@ -111,8 +113,17 @@ def load_label(filepath: str) -> dict:
     return data
 
 
+def _load_schema() -> dict | None:
+    """JSON 스키마 파일 로드 (캐싱)"""
+    if not SCHEMA_PATH.exists():
+        print(f"[validate] 스키마 파일 없음: {SCHEMA_PATH}")
+        return None
+    with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
 def validate_label(label_data: dict) -> list[dict]:
-    """라벨 데이터 검증
+    """라벨 데이터 검증 (jsonschema + 비즈니스 로직)
 
     Args:
         label_data: 라벨 딕셔너리
@@ -122,7 +133,21 @@ def validate_label(label_data: dict) -> list[dict]:
     """
     issues = []
 
-    # === 필수 필드 존재 확인 ===
+    # === 1단계: JSON Schema 검증 ===
+    schema = _load_schema()
+    if schema:
+        validator = jsonschema.Draft7Validator(schema)
+        for error in validator.iter_errors(label_data):
+            path = ".".join(str(p) for p in error.absolute_path) or "(root)"
+            issues.append({
+                "level": "error",
+                "field": path,
+                "message": f"스키마 위반 [{path}]: {error.message}",
+            })
+        if issues:
+            return issues
+
+    # === 2단계: 필수 필드 존재 확인 (스키마 없을 때 fallback) ===
     required_fields = [
         "schema_version", "object_id", "input_type",
         "canonical_frame", "parts", "affordances",
@@ -137,11 +162,10 @@ def validate_label(label_data: dict) -> list[dict]:
                 "message": f"필수 필드 누락: {field}",
             })
 
-    # 필수 필드가 없으면 이하 검증 불가
     if any(i["level"] == "error" for i in issues):
         return issues
 
-    # === 스키마 버전 확인 ===
+    # === 3단계: 스키마 버전 확인 ===
     if label_data.get("schema_version") != "0.1":
         issues.append({
             "level": "warning",
