@@ -1,0 +1,108 @@
+# Affordance Labeller — 프로젝트 컨텍스트
+
+## 프로젝트 한줄 요약
+휴머노이드 로봇 양손 파지(bimanual grasping)를 위한 어포던스 라벨링 툴 MVP. YCB mug 1개를 끝까지 라벨링하고 저장·재로드·검수할 수 있는 체계를 1개월 내 구축한다.
+
+## 개발자
+- 1인 개발 (고박사, 로보틱스/컴퓨터비전 연구자)
+- 시작일: 2026-03-26
+- 마감일: 2026-04-24
+
+## 기술 스택
+- **언어**: Python 3.10+
+- **프론트엔드**: Viser (웹 기반 3D 뷰어, https://viser.studio/)
+- **백엔드**: Open3D + trimesh (3D 처리)
+- **저장**: JSON v0.1 (자체 스키마)
+- **대상 데이터**: YCB Object Dataset (기본: 025_mug)
+
+## 디렉토리 구조
+```
+Affordance_Labeller/
+├── CLAUDE.md              ← 이 파일 (Claude Code 컨텍스트)
+├── docs/                  ← 연구 계획 문서 (Obsidian)
+│   ├── 00_프로젝트_개요.md
+│   ├── 01_MVP_수정본_실행계획안.md
+│   ├── 02_주간_점검표.md
+│   ├── 03_실무_업무_할당.md
+│   ├── 04_회의록_템플릿.md
+│   ├── 05_데이터_스키마_초안.md
+│   └── 06_1인_일별_실행계획.md  ← 일별 실행계획
+└── src/                   ← 소스 코드
+    ├── app/
+    │   ├── main.py        # Viser 서버 진입점 + UI
+    │   ├── viewer.py      # 3D 뷰어 래퍼 (mesh 로드/표시/포즈)
+    │   ├── io_handler.py  # JSON 저장/로드/검증
+    │   └── __init__.py
+    ├── assets/ycb/        # YCB 에셋 (git에서 제외, 다운로드 필요)
+    ├── labels/            # 라벨 JSON 저장소
+    ├── schemas/
+    │   └── label_v0.1.json  # JSON 스키마 정의
+    ├── scripts/
+    │   ├── setup_env.sh     # 환경 설치 스크립트
+    │   └── download_ycb.py  # YCB 에셋 다운로드
+    ├── tests/
+    ├── requirements.txt
+    └── .gitignore
+```
+
+## 빌드 및 실행
+```bash
+cd src/
+bash scripts/setup_env.sh                   # 환경 설치
+python scripts/download_ycb.py              # YCB mug 다운로드
+python app/main.py --mesh assets/ycb/025_mug/google_512k/nontextured.ply  # 실행
+```
+
+## JSON 스키마 핵심 구조 (v0.1)
+최상위 필드: `object_id`, `input_type`, `canonical_frame`, `parts`, `affordances`, `contact_region_masks`, `candidate_poses`, `annotator`, `review_status`, `updated_at`
+
+연결 관계:
+- `part` → `affordance` (part_ref로 연결)
+- `affordance` → `contact_region_mask` (part_ref 공유)
+- `candidate_pose` → `affordance` (linked_affordance_id)
+- `candidate_pose` → `mask` (linked_mask_id)
+
+## 4주 게이트 일정
+| 게이트 | 내용 | 목표일 | 판정 기준 |
+|--------|------|--------|-----------|
+| Gate 1 | mug 로드 + JSON 저장/재로드 | 03/29 | Save→Load 시 데이터 보존 |
+| Gate 2 | affordance + semantic tag 저장 | 04/04 | handle graspable 라벨 저장/복원 |
+| Gate 3 | contact mask + pose 저장 | 04/11 | mask+pose 저장/복원 |
+| Gate 4 | 검수 포함 전체 데모 | 04/24 | 5분 이내 데모 성공 |
+
+## 현재 진행 상태
+- [x] 프로젝트 구조 생성
+- [x] 기본 코드 boilerplate (main.py, viewer.py, io_handler.py)
+- [x] JSON 스키마 v0.1 정의
+- [x] 샘플 라벨 JSON 작성
+- [x] 환경 설치 / YCB 다운로드 스크립트
+- [ ] **환경 설치 실행** (Viser, Open3D 설치)
+- [ ] **YCB mug 다운로드**
+- [ ] Viser에서 mug 3D 표시 확인
+- [ ] Save/Load 동작 테스트
+
+## 코딩 컨벤션
+- 한글 주석, 영문 코드 (함수명/변수명은 영어)
+- 커밋 메시지: `feat:`, `fix:`, `docs:`, `data:` 접두사
+- 에러 메시지는 한글
+- `print(f"[모듈명] ...")` 형태로 로그
+
+## 제외 범위 (이번 달에 하지 않는 것)
+- 자동 affordance 추출 (SAM 등은 4주차 선택 PoC만)
+- Isaac Sim 연동
+- RLDS/LeRobot 완전 export (매핑 테이블 정리까지만)
+- 다중 사용자 / DB 백엔드
+- 실로봇 연동
+
+## 핵심 참조 링크
+- YCB Objects: https://www.ycbbenchmarks.com/object-models/
+- Viser 문서: https://viser.studio/
+- RLDS: https://github.com/google-research/rlds
+- LeRobot: https://github.com/huggingface/lerobot
+
+## Claude Code에게
+- `docs/06_1인_일별_실행계획.md`를 참조하여 현재 Day에 해당하는 작업을 진행
+- 4시간 이상 막히면 우회로를 제안
+- Viser API가 불확실하면 https://viser.studio/ 문서를 먼저 확인
+- 코드 작성 시 `src/` 디렉토리 안에서 작업
+- JSON 스키마 변경은 주간 리뷰에서만 (함부로 필드 추가/삭제 금지)

@@ -1,0 +1,9 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Obsidian
+.obsidian/
+
+# Claude Code
+.claude/

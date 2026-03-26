@@ -1,0 +1,321 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Affordance Label Schema v0.1",
+  "description": "어포던스 라벨링 툴의 내부 JSON 저장 포맷. RLDS/LeRobot 변환 가능 구조.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "object_id",
+    "input_type",
+    "canonical_frame",
+    "parts",
+    "affordances",
+    "annotator",
+    "review_status",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.1",
+      "description": "스키마 버전"
+    },
+    "object_id": {
+      "type": "string",
+      "description": "객체 고유 ID (예: ycb_025_mug)",
+      "pattern": "^[a-z0-9_]+$"
+    },
+    "asset_version": {
+      "type": "string",
+      "description": "에셋 버전 (예: google_512k)"
+    },
+    "input_type": {
+      "type": "string",
+      "enum": ["rgb", "depth", "rgbd", "pointcloud", "mesh"],
+      "description": "입력 데이터 유형"
+    },
+    "input_file": {
+      "type": "string",
+      "description": "원본 입력 파일 경로 (상대경로)"
+    },
+    "canonical_frame": {
+      "type": "object",
+      "description": "정규 좌표계",
+      "required": ["origin", "axis_x", "axis_y", "axis_z"],
+      "properties": {
+        "origin": {
+          "type": "array",
+          "items": {"type": "number"},
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "axis_x": {
+          "type": "array",
+          "items": {"type": "number"},
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "axis_y": {
+          "type": "array",
+          "items": {"type": "number"},
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "axis_z": {
+          "type": "array",
+          "items": {"type": "number"},
+          "minItems": 3,
+          "maxItems": 3
+        }
+      }
+    },
+    "parts": {
+      "type": "array",
+      "description": "객체 파트 정의",
+      "items": {
+        "type": "object",
+        "required": ["part_id", "name"],
+        "properties": {
+          "part_id": {
+            "type": "string",
+            "description": "파트 고유 ID"
+          },
+          "name": {
+            "type": "string",
+            "enum": ["body", "handle", "rim", "interior", "base", "other"],
+            "description": "파트 이름"
+          },
+          "vertex_indices": {
+            "type": "array",
+            "items": {"type": "integer"},
+            "description": "해당 파트에 속하는 정점 인덱스"
+          },
+          "face_indices": {
+            "type": "array",
+            "items": {"type": "integer"},
+            "description": "해당 파트에 속하는 면 인덱스"
+          },
+          "visible": {
+            "type": "boolean",
+            "default": true
+          },
+          "color": {
+            "type": "array",
+            "items": {"type": "number"},
+            "minItems": 3,
+            "maxItems": 4,
+            "description": "표시 색상 [R, G, B] 또는 [R, G, B, A], 0~1"
+          },
+          "comment": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "affordances": {
+      "type": "array",
+      "description": "어포던스 라벨",
+      "items": {
+        "type": "object",
+        "required": ["affordance_id", "label", "part_ref"],
+        "properties": {
+          "affordance_id": {
+            "type": "string",
+            "description": "어포던스 고유 ID"
+          },
+          "label": {
+            "type": "string",
+            "enum": ["graspable", "pour_support", "handover_region", "placeable", "non_affordance"],
+            "description": "어포던스 클래스"
+          },
+          "part_ref": {
+            "type": "string",
+            "description": "연결된 part_id"
+          },
+          "vertex_indices": {
+            "type": "array",
+            "items": {"type": "integer"},
+            "description": "어포던스 영역의 정점 인덱스"
+          },
+          "face_indices": {
+            "type": "array",
+            "items": {"type": "integer"},
+            "description": "어포던스 영역의 면 인덱스"
+          },
+          "semantic_tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["pick_up", "pour_ready", "handover_ready", "reposition_only", "place_down", "tilt"]
+            },
+            "description": "시맨틱 액션 태그"
+          },
+          "source_type": {
+            "type": "string",
+            "enum": ["manual", "assisted", "auto"],
+            "default": "manual",
+            "description": "라벨 생성 방식"
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "자동 생성 시 신뢰도 (수동이면 1.0)"
+          },
+          "comment": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "contact_region_masks": {
+      "type": "array",
+      "description": "접촉 영역 마스크",
+      "items": {
+        "type": "object",
+        "required": ["mask_id", "mask_type", "part_ref"],
+        "properties": {
+          "mask_id": {
+            "type": "string"
+          },
+          "mask_type": {
+            "type": "string",
+            "enum": ["handle_pinch", "body_power", "rim_control", "custom"],
+            "description": "접촉 유형"
+          },
+          "part_ref": {
+            "type": "string",
+            "description": "연결된 part_id"
+          },
+          "patch_a": {
+            "type": "object",
+            "description": "접촉 패치 A (예: 엄지)",
+            "properties": {
+              "vertex_indices": {
+                "type": "array",
+                "items": {"type": "integer"}
+              },
+              "face_indices": {
+                "type": "array",
+                "items": {"type": "integer"}
+              },
+              "finger_role": {
+                "type": "string",
+                "description": "손가락 역할 (예: thumb, index)"
+              }
+            }
+          },
+          "patch_b": {
+            "type": "object",
+            "description": "접촉 패치 B (예: 검지~소지)",
+            "properties": {
+              "vertex_indices": {
+                "type": "array",
+                "items": {"type": "integer"}
+              },
+              "face_indices": {
+                "type": "array",
+                "items": {"type": "integer"}
+              },
+              "finger_role": {
+                "type": "string"
+              }
+            }
+          },
+          "comment": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "candidate_poses": {
+      "type": "array",
+      "description": "후보 6D 파지/액션 포즈",
+      "items": {
+        "type": "object",
+        "required": ["pose_id", "name", "translation", "rotation_xyzw"],
+        "properties": {
+          "pose_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "description": "포즈 이름 (예: handle_top_pinch)"
+          },
+          "translation": {
+            "type": "array",
+            "items": {"type": "number"},
+            "minItems": 3,
+            "maxItems": 3,
+            "description": "[x, y, z] 미터 단위"
+          },
+          "rotation_xyzw": {
+            "type": "array",
+            "items": {"type": "number"},
+            "minItems": 4,
+            "maxItems": 4,
+            "description": "쿼터니언 [x, y, z, w]"
+          },
+          "linked_affordance_id": {
+            "type": "string",
+            "description": "연결된 affordance_id"
+          },
+          "linked_mask_id": {
+            "type": "string",
+            "description": "연결된 mask_id"
+          },
+          "semantic_tags": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "grasp_type": {
+            "type": "string",
+            "enum": ["pinch", "power", "lateral", "hook", "precision", "custom"],
+            "description": "파지 유형"
+          },
+          "hand_role": {
+            "type": "string",
+            "enum": ["left", "right", "either"],
+            "description": "손 역할 (양손 조작 대비)"
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "approved": {
+            "type": "boolean",
+            "default": false,
+            "description": "검수 승인 여부"
+          },
+          "comment": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "annotator": {
+      "type": "string",
+      "description": "라벨 작성자"
+    },
+    "review_status": {
+      "type": "string",
+      "enum": ["draft", "in_review", "reviewed", "approved"],
+      "description": "검수 상태"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "마지막 수정 시간 (ISO 8601)"
+    },
+    "task_label": {
+      "type": "string",
+      "description": "확장 대비: 태스크 라벨 (예: bimanual_pour)"
+    },
+    "downstream_export_ready": {
+      "type": "boolean",
+      "default": false,
+      "description": "확장 대비: RLDS/LeRobot export 가능 여부"
+    }
+  }
+}

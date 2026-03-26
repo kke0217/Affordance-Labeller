@@ -1,0 +1,112 @@
+{
+  "schema_version": "0.1",
+  "object_id": "ycb_025_mug",
+  "asset_version": "google_512k",
+  "input_type": "mesh",
+  "input_file": "assets/ycb/025_mug/google_512k/nontextured.ply",
+  "canonical_frame": {
+    "origin": [0.0, 0.0, 0.0],
+    "axis_x": [1.0, 0.0, 0.0],
+    "axis_y": [0.0, 1.0, 0.0],
+    "axis_z": [0.0, 0.0, 1.0]
+  },
+  "parts": [
+    {
+      "part_id": "part_body",
+      "name": "body",
+      "vertex_indices": [],
+      "face_indices": [],
+      "visible": true,
+      "color": [0.6, 0.6, 0.8, 0.8],
+      "comment": "머그컵 본체"
+    },
+    {
+      "part_id": "part_handle",
+      "name": "handle",
+      "vertex_indices": [],
+      "face_indices": [],
+      "visible": true,
+      "color": [0.2, 0.8, 0.2, 0.8],
+      "comment": "손잡이"
+    },
+    {
+      "part_id": "part_rim",
+      "name": "rim",
+      "vertex_indices": [],
+      "face_indices": [],
+      "visible": true,
+      "color": [0.8, 0.8, 0.2, 0.8],
+      "comment": "입구 테두리"
+    },
+    {
+      "part_id": "part_interior",
+      "name": "interior",
+      "vertex_indices": [],
+      "face_indices": [],
+      "visible": true,
+      "color": [0.8, 0.4, 0.2, 0.8],
+      "comment": "내부 공간"
+    }
+  ],
+  "affordances": [
+    {
+      "affordance_id": "aff_handle_grasp",
+      "label": "graspable",
+      "part_ref": "part_handle",
+      "vertex_indices": [],
+      "face_indices": [],
+      "semantic_tags": ["pick_up", "handover_ready"],
+      "source_type": "manual",
+      "confidence": 1.0,
+      "comment": "손잡이 파지 영역"
+    },
+    {
+      "affordance_id": "aff_rim_pour",
+      "label": "pour_support",
+      "part_ref": "part_rim",
+      "vertex_indices": [],
+      "face_indices": [],
+      "semantic_tags": ["pour_ready"],
+      "source_type": "manual",
+      "confidence": 1.0,
+      "comment": "따르기 지지 영역"
+    }
+  ],
+  "contact_region_masks": [
+    {
+      "mask_id": "mask_handle_pinch",
+      "mask_type": "handle_pinch",
+      "part_ref": "part_handle",
+      "patch_a": {
+        "vertex_indices": [],
+        "face_indices": [],
+        "finger_role": "thumb"
+      },
+      "patch_b": {
+        "vertex_indices": [],
+        "face_indices": [],
+        "finger_role": "index_middle"
+      },
+      "comment": "손잡이 핀치 그립 접촉 영역"
+    }
+  ],
+  "candidate_poses": [
+    {
+      "pose_id": "pose_handle_top_pinch",
+      "name": "handle_top_pinch",
+      "translation": [0.0, 0.05, 0.0],
+      "rotation_xyzw": [0.0, 0.0, 0.0, 1.0],
+      "linked_affordance_id": "aff_handle_grasp",
+      "linked_mask_id": "mask_handle_pinch",
+      "semantic_tags": ["pick_up"],
+      "grasp_type": "pinch",
+      "hand_role": "right",
+      "confidence": 1.0,
+      "approved": false,
+      "comment": "손잡이 상단 핀치 그립 포즈"
+    }
+  ],
+  "annotator": "고박사",
+  "review_status": "draft",
+  "updated_at": "2026-03-26T00:00:00+09:00"
+}

@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Assets (large files — download separately)
+assets/ycb/*/google_512k/
+assets/ycb/*.tgz
+assets/ycb/*.tar.gz
+
+# Temporary
+*.tmp
+*.log
