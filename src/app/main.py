@@ -454,7 +454,20 @@ def setup_ui(server: viser.ViserServer):
 
         try:
             path = save_label(current_label)
-            gui_status.content = f"**Saved**: {Path(path).name}"
+            # Save 후 자동 validation
+            issues = validate_label(current_label)
+            if issues:
+                errors = sum(1 for i in issues if i["level"] == "error")
+                warnings = sum(1 for i in issues if i["level"] == "warning")
+                msgs = [f"- {i['message']}" for i in issues[:3]]
+                gui_status.content = (
+                    f"**Saved**: {Path(path).name}\n\n"
+                    f"⚠ {errors} errors, {warnings} warnings\n\n"
+                    + "\n".join(msgs)
+                )
+            else:
+                gui_status.content = f"**Saved**: {Path(path).name} ✓"
+            print_validation_report(issues)
         except Exception as e:
             gui_status.content = f"**Error**: {e}"
 
