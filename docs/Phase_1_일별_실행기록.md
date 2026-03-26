@@ -1,10 +1,10 @@
 ---
-title: 1인 일별 실행계획
+title: "Phase 1: 일별 실행 기록"
 tags:
-  - execution-plan
+  - phase-1
+  - execution-log
   - solo-dev
-  - daily-schedule
-status: active
+status: completed
 created: 2026-03-26
 start_date: 2026-03-26
 end_date: 2026-04-24
@@ -263,5 +263,5 @@ end_date: 2026-04-24
 ## 연결 문서
 - [[00_프로젝트_개요]]
 - [[01_Phase_1_계획안]]
-- [[02_회의록_템플릿]]
+- [[02_Phase_2_계획안]] — 다음 단계
 - [[03_데이터_스키마_초안]]
