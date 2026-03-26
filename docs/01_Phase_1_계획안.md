@@ -1,13 +1,17 @@
 ---
-title: MVP 수정본 실행계획안
+title: "Phase 1: 수동 라벨링 MVP 구축"
 tags:
+  - phase-1
   - mvp
   - execution-plan
-status: active
+status: completed
 created: 2026-03-26
+completed: 2026-03-26
 ---
 
-# MVP 수정본 실행계획안
+# Phase 1: 수동 라벨링 MVP 구축
+
+> **상태: 완료** — Gate 1~4 모두 통과 (2026-03-26)
 
 ## 문서 목적
 이 문서는 1개월 내 구축 예정인 어포던스 라벨링 툴 및 데이터 관리 시스템의 수정 실행계획을 정리한다. 목표는 자동화 완성이 아니라, 학습용 데이터를 실제로 만들고 저장·재로드·검수할 수 있는 최소 동작 체계를 확보하는 것이다.
