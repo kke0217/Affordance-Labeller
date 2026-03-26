@@ -7,7 +7,6 @@ Viser 서버를 시작하고 라벨링 UI를 제공합니다.
 """
 
 import argparse
-import json
 import time
 from pathlib import Path
 
@@ -59,6 +58,27 @@ def setup_ui(server: viser.ViserServer):
             initial_value=current_label.get("review_status", "draft"),
         )
 
+    # === Canonical Frame 섹션 ===
+    cf = current_label.get("canonical_frame", {})
+    with server.gui.add_folder("Canonical Frame"):
+        gui_cf_origin = server.gui.add_vector3(
+            "Origin",
+            initial_value=tuple(cf.get("origin", [0, 0, 0])),
+            step=0.01,
+        )
+        gui_cf_show = server.gui.add_checkbox("Show Frame", initial_value=True)
+
+        @gui_cf_origin.on_update
+        def on_cf_origin_change(_):
+            origin = list(gui_cf_origin.value)
+            current_label["canonical_frame"]["origin"] = origin
+            viewer.display_canonical_frame(current_label["canonical_frame"])
+
+        @gui_cf_show.on_update
+        def on_cf_show_change(_):
+            if "canonical" in viewer.frame_handles:
+                viewer.frame_handles["canonical"].visible = gui_cf_show.value
+
     # === 파트 정보 섹션 ===
     with server.gui.add_folder("Parts"):
         parts_info = server.gui.add_markdown(
@@ -92,6 +112,7 @@ def setup_ui(server: viser.ViserServer):
         current_label["input_type"] = gui_input_type.value
         current_label["annotator"] = gui_annotator.value
         current_label["review_status"] = gui_review_status.value
+        current_label["canonical_frame"]["origin"] = list(gui_cf_origin.value)
 
         try:
             path = save_label(current_label)
@@ -125,6 +146,7 @@ def setup_ui(server: viser.ViserServer):
 
             # canonical frame 갱신
             if "canonical_frame" in loaded:
+                gui_cf_origin.value = tuple(loaded["canonical_frame"].get("origin", [0, 0, 0]))
                 viewer.display_canonical_frame(loaded["canonical_frame"])
 
             gui_status.content = f"**Loaded**: {filepath.name}"
