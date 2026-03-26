@@ -4,6 +4,8 @@
 
 Viser 기반 웹 UI에서 3D 메시를 보면서 part 분류, affordance 라벨링, contact mask 지정, candidate pose 추가를 수행하고, JSON으로 저장/재로드/검수할 수 있습니다.
 
+> **처음 사용하시나요?** [사용자 가이드 (USER_GUIDE.md)](docs/USER_GUIDE.md)를 참고하세요.
+
 ![handle_grasp](src/labels/handle_grasp_preview.png)
 ![rim_pour](src/labels/rim_pour_preview.png)
 ![body_handover](src/labels/body_handover_preview.png)
