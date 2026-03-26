@@ -46,6 +46,63 @@ AFFORDANCE_COLORS = {
 }
 
 
+def auto_segment_mug(
+    mesh: trimesh.Trimesh,
+    handle_ratio: float = 1.3,
+    rim_ratio: float = 0.06,
+    base_ratio: float = 0.03,
+) -> dict[str, np.ndarray]:
+    """YCB mug 기하학 기반 자동 part 분류
+
+    원통형 body에서 돌출된 handle, 상단 rim, 하단 base를 분리한다.
+
+    Args:
+        handle_ratio: body 반지름 대비 handle 판정 배수 (기본 1.3)
+        rim_ratio: Z축 상위 비율 → rim (기본 0.06 = 6%)
+        base_ratio: Z축 하위 비율 → base (기본 0.03 = 3%)
+
+    Returns:
+        part_name → vertex_indices 배열 딕셔너리
+    """
+    verts = mesh.vertices
+    n = len(verts)
+
+    # 바운딩 박스 기준값
+    z_min, z_max = verts[:, 2].min(), verts[:, 2].max()
+    z_range = z_max - z_min
+
+    # 중심축 (body 원통의 XY 중심)
+    x_center = verts[:, 0].mean()
+    y_center = verts[:, 1].mean()
+    dist_xy = np.sqrt((verts[:, 0] - x_center) ** 2 + (verts[:, 1] - y_center) ** 2)
+
+    # body 반지름 추정 (XY 거리 중앙값)
+    body_radius = np.median(dist_xy)
+
+    # 분류 기준 (파라미터로 조정 가능)
+    handle_threshold = body_radius * handle_ratio
+    rim_z = z_max - z_range * rim_ratio
+    base_z = z_min + z_range * base_ratio
+
+    # 분류
+    is_handle = dist_xy > handle_threshold
+    is_rim = (verts[:, 2] > rim_z) & ~is_handle
+    is_base = (verts[:, 2] < base_z) & ~is_handle
+    is_body = ~is_handle & ~is_rim & ~is_base
+
+    parts = {
+        "body": np.where(is_body)[0],
+        "handle": np.where(is_handle)[0],
+        "rim": np.where(is_rim)[0],
+        "base": np.where(is_base)[0],
+    }
+
+    for name, indices in parts.items():
+        print(f"  [part] {name}: {len(indices)} vertices")
+
+    return parts
+
+
 class MeshViewer:
     """Viser 기반 3D 메시 뷰어"""
 
@@ -56,6 +113,7 @@ class MeshViewer:
         self.frame_handles = {}
         self.part_handles = {}
         self.pose_handles = {}
+        self.part_vertex_indices: dict[str, np.ndarray] = {}
 
     def load_mesh(self, mesh_path: str) -> bool:
         """3D 메시 파일 로드
@@ -106,6 +164,46 @@ class MeshViewer:
             mesh=mesh,
         )
         print(f"[viewer] 메시 표시: /object/{name}")
+
+    def apply_part_colors(self, part_vertex_indices: dict[str, np.ndarray]):
+        """part별 vertex color를 적용하여 메시 재표시"""
+        if self.loaded_mesh is None:
+            return
+
+        self.part_vertex_indices = part_vertex_indices
+        mesh = self.loaded_mesh
+        colors = np.full((len(mesh.vertices), 4), [180, 180, 180, 255], dtype=np.uint8)
+
+        for part_name, indices in part_vertex_indices.items():
+            color = PART_COLORS.get(part_name, PART_COLORS["other"])
+            colors[indices] = color
+
+        mesh.visual = trimesh.visual.ColorVisuals(mesh=mesh, vertex_colors=colors)
+
+        # 기존 메시 제거 후 재표시
+        if self.mesh_handle:
+            self.mesh_handle.remove()
+        self.mesh_handle = self.server.scene.add_mesh_trimesh(
+            name="/object/mug",
+            mesh=mesh,
+        )
+        print("[viewer] part 색상 오버레이 적용")
+
+    def generate_parts_data(self, part_vertex_indices: dict[str, np.ndarray]) -> list[dict]:
+        """part_vertex_indices를 JSON parts 리스트로 변환"""
+        parts = []
+        for name, indices in part_vertex_indices.items():
+            color = PART_COLORS.get(name, PART_COLORS["other"])
+            parts.append({
+                "part_id": f"part_{name}",
+                "name": name,
+                "vertex_indices": indices.tolist(),
+                "face_indices": [],
+                "visible": True,
+                "color": [c / 255.0 for c in color],
+                "comment": "",
+            })
+        return parts
 
     def display_canonical_frame(self, canonical_frame: dict, scale: float = 0.1):
         """정규 좌표계 프레임 표시"""

@@ -7,15 +7,21 @@ Viser 서버를 시작하고 라벨링 UI를 제공합니다.
 """
 
 import argparse
+import os
+import signal
+import sys
 import time
 from pathlib import Path
+
+import numpy as np
+import trimesh
 
 try:
     import viser
 except ImportError:
     raise ImportError("viser가 필요합니다: pip install viser")
 
-from viewer import MeshViewer
+from viewer import MeshViewer, auto_segment_mug, PART_COLORS
 from io_handler import (
     create_empty_label,
     save_label,
@@ -80,16 +86,147 @@ def setup_ui(server: viser.ViserServer):
                 viewer.frame_handles["canonical"].visible = gui_cf_show.value
 
     # === 파트 정보 섹션 ===
+    part_checkboxes = {}
     with server.gui.add_folder("Parts"):
+        gui_handle_ratio = server.gui.add_slider(
+            "Handle Ratio", min=1.0, max=2.0, step=0.05, initial_value=1.3,
+        )
+        gui_rim_ratio = server.gui.add_slider(
+            "Rim %", min=0.01, max=0.20, step=0.01, initial_value=0.06,
+        )
+        gui_base_ratio = server.gui.add_slider(
+            "Base %", min=0.01, max=0.20, step=0.01, initial_value=0.03,
+        )
+        auto_segment_btn = server.gui.add_button("Auto Segment (geometry)")
         parts_info = server.gui.add_markdown(
             _format_parts_info(current_label.get("parts", []))
         )
 
-    # === Affordance 섹션 ===
+        @auto_segment_btn.on_click
+        def on_auto_segment(_):
+            nonlocal gui_status
+            if viewer.loaded_mesh is None:
+                gui_status.content = "**Error**: 메시를 먼저 로드하세요"
+                return
+
+            part_indices = auto_segment_mug(
+                viewer.loaded_mesh,
+                handle_ratio=gui_handle_ratio.value,
+                rim_ratio=gui_rim_ratio.value,
+                base_ratio=gui_base_ratio.value,
+            )
+            viewer.apply_part_colors(part_indices)
+            current_label["parts"] = viewer.generate_parts_data(part_indices)
+            parts_info.content = _format_parts_info(current_label["parts"])
+            _refresh_aff_part_options()
+            gui_status.content = "**Parts**: 자동 분류 완료"
+
+    # === Affordance 편집 섹션 ===
     with server.gui.add_folder("Affordances"):
+        # part 선택 → affordance class 부여
+        gui_aff_part = server.gui.add_dropdown(
+            "Target Part",
+            options=["(none)"] + [p["name"] for p in current_label.get("parts", [])],
+            initial_value="(none)",
+        )
+        gui_aff_class = server.gui.add_dropdown(
+            "Affordance Class",
+            options=["graspable", "pour_support", "handover_region", "placeable", "non_affordance"],
+            initial_value="graspable",
+        )
+        gui_aff_tags = server.gui.add_dropdown(
+            "Semantic Tag",
+            options=["pick_up", "pour_ready", "handover_ready", "reposition_only", "place_down", "tilt"],
+            initial_value="pick_up",
+        )
+        assign_aff_btn = server.gui.add_button("Assign Affordance")
+        remove_aff_btn = server.gui.add_button("Remove Last Affordance")
         aff_info = server.gui.add_markdown(
             _format_affordances_info(current_label.get("affordances", []))
         )
+
+        def _refresh_aff_part_options():
+            """parts가 변경되면 드롭다운 옵션 갱신"""
+            part_names = [p["name"] for p in current_label.get("parts", [])]
+            gui_aff_part.options = ["(none)"] + part_names
+
+        @assign_aff_btn.on_click
+        def on_assign_aff(_):
+            nonlocal gui_status
+            part_name = gui_aff_part.value
+            if part_name == "(none)":
+                gui_status.content = "**Error**: part를 먼저 선택하세요"
+                return
+
+            # 해당 part 찾기
+            part = next((p for p in current_label["parts"] if p["name"] == part_name), None)
+            if part is None:
+                gui_status.content = f"**Error**: '{part_name}' part를 찾을 수 없습니다"
+                return
+
+            aff_class = gui_aff_class.value
+            tag = gui_aff_tags.value
+            aff_id = f"aff_{part_name}_{aff_class}"
+
+            # 기존 동일 affordance 업데이트 또는 새로 추가
+            existing = next((a for a in current_label["affordances"] if a["affordance_id"] == aff_id), None)
+            if existing:
+                if tag not in existing["semantic_tags"]:
+                    existing["semantic_tags"].append(tag)
+            else:
+                current_label["affordances"].append({
+                    "affordance_id": aff_id,
+                    "label": aff_class,
+                    "part_ref": part["part_id"],
+                    "vertex_indices": part.get("vertex_indices", []),
+                    "face_indices": [],
+                    "semantic_tags": [tag],
+                    "source_type": "manual",
+                    "confidence": 1.0,
+                    "comment": "",
+                })
+
+            # 색상 오버레이 갱신
+            _apply_affordance_overlay()
+            aff_info.content = _format_affordances_info(current_label["affordances"])
+            gui_status.content = f"**Affordance**: {aff_class} → {part_name} [{tag}]"
+
+        @remove_aff_btn.on_click
+        def on_remove_aff(_):
+            nonlocal gui_status
+            if current_label["affordances"]:
+                removed = current_label["affordances"].pop()
+                _apply_affordance_overlay()
+                aff_info.content = _format_affordances_info(current_label["affordances"])
+                gui_status.content = f"**Removed**: {removed['affordance_id']}"
+            else:
+                gui_status.content = "**Error**: 삭제할 affordance가 없습니다"
+
+        def _apply_affordance_overlay():
+            """affordance 색상 오버레이 적용"""
+            if viewer.loaded_mesh is None:
+                return
+            from viewer import AFFORDANCE_COLORS
+            mesh = viewer.loaded_mesh
+            # part 색상 기본값
+            colors = np.full((len(mesh.vertices), 4), [180, 180, 180, 255], dtype=np.uint8)
+            for part in current_label.get("parts", []):
+                indices = part.get("vertex_indices", [])
+                if indices:
+                    pcolor = PART_COLORS.get(part["name"], PART_COLORS["other"])
+                    colors[indices] = pcolor
+            # affordance 색상 덮어쓰기
+            for aff in current_label.get("affordances", []):
+                indices = aff.get("vertex_indices", [])
+                if indices:
+                    acolor = AFFORDANCE_COLORS.get(aff["label"], (128, 128, 128, 100))
+                    colors[indices] = acolor
+            mesh.visual = trimesh.visual.ColorVisuals(mesh=mesh, vertex_colors=colors)
+            if viewer.mesh_handle:
+                viewer.mesh_handle.remove()
+            viewer.mesh_handle = viewer.server.scene.add_mesh_trimesh(
+                name="/object/mug", mesh=mesh,
+            )
 
     # === Candidate Poses 섹션 ===
     with server.gui.add_folder("Candidate Poses"):
@@ -102,6 +239,7 @@ def setup_ui(server: viser.ViserServer):
         save_button = server.gui.add_button("Save Label")
         load_button = server.gui.add_button("Load Label")
         validate_button = server.gui.add_button("Validate")
+        quit_button = server.gui.add_button("Quit Server", color="red")
         gui_status = server.gui.add_markdown("*Ready*")
 
     # === 이벤트 핸들러 ===
@@ -138,6 +276,11 @@ def setup_ui(server: viser.ViserServer):
             parts_info.content = _format_parts_info(loaded.get("parts", []))
             aff_info.content = _format_affordances_info(loaded.get("affordances", []))
             pose_info.content = _format_poses_info(loaded.get("candidate_poses", []))
+            _refresh_aff_part_options()
+
+            # affordance + part 색상 오버레이 복원
+            if loaded.get("parts") or loaded.get("affordances"):
+                _apply_affordance_overlay()
 
             # pose 시각화 갱신
             viewer.clear_poses()
@@ -154,6 +297,11 @@ def setup_ui(server: viser.ViserServer):
             gui_status.content = f"**Not Found**: {filepath.name}"
         except Exception as e:
             gui_status.content = f"**Error**: {e}"
+
+    @quit_button.on_click
+    def on_quit(_):
+        print("\n[main] 서버 종료 (UI 버튼)")
+        os.kill(os.getpid(), signal.SIGKILL)
 
     @validate_button.on_click
     def on_validate(_):
@@ -241,6 +389,28 @@ def main():
             viewer.display_mesh("mug")
             viewer.display_canonical_frame(current_label.get("canonical_frame", {}))
 
+            # 기존 라벨에서 part/affordance 색상 복원
+            if current_label.get("parts"):
+                from viewer import AFFORDANCE_COLORS
+                colors = np.full((len(viewer.loaded_mesh.vertices), 4), [180, 180, 180, 255], dtype=np.uint8)
+                for part in current_label["parts"]:
+                    indices = part.get("vertex_indices", [])
+                    if indices:
+                        colors[indices] = PART_COLORS.get(part["name"], PART_COLORS["other"])
+                for aff in current_label.get("affordances", []):
+                    indices = aff.get("vertex_indices", [])
+                    if indices:
+                        colors[indices] = AFFORDANCE_COLORS.get(aff["label"], (128, 128, 128, 100))
+                viewer.loaded_mesh.visual = trimesh.visual.ColorVisuals(
+                    mesh=viewer.loaded_mesh, vertex_colors=colors,
+                )
+                if viewer.mesh_handle:
+                    viewer.mesh_handle.remove()
+                viewer.mesh_handle = server.scene.add_mesh_trimesh(
+                    name="/object/mug", mesh=viewer.loaded_mesh,
+                )
+                print("[main] 기존 라벨 색상 오버레이 적용")
+
             # 기존 pose 표시
             for pose in current_label.get("candidate_poses", []):
                 viewer.display_pose(pose)
@@ -248,13 +418,18 @@ def main():
     # UI 구성
     setup_ui(server)
 
+    # Ctrl+C 시그널 핸들러
+    def _shutdown(sig, frame):
+        print("\n[main] 서버 종료")
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, _shutdown)
+    signal.signal(signal.SIGTERM, _shutdown)
+
     # 서버 유지
     print("[main] 서버 실행 중... (Ctrl+C로 종료)")
-    try:
-        while True:
-            time.sleep(1.0)
-    except KeyboardInterrupt:
-        print("\n[main] 서버 종료")
+    while True:
+        time.sleep(1.0)
 
 
 if __name__ == "__main__":
