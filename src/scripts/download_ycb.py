@@ -20,13 +20,34 @@ YCB_OBJECTS = {
         "url": "http://ycb-benchmarks.s3-website-us-east-1.amazonaws.com/data/google/025_mug_google_512k.tgz",
         "description": "YCB Mug - 기본 테스트 객체",
     },
+    "006_mustard_bottle": {
+        "url": "http://ycb-benchmarks.s3-website-us-east-1.amazonaws.com/data/google/006_mustard_bottle_google_512k.tgz",
+        "description": "YCB Mustard Bottle - 병 형태 객체",
+    },
+    "035_power_drill": {
+        "url": "http://ycb-benchmarks.s3-website-us-east-1.amazonaws.com/data/google/035_power_drill_google_512k.tgz",
+        "description": "YCB Power Drill - 비대칭 도구 객체",
+    },
+    "011_banana": {
+        "url": "http://ycb-benchmarks.s3-website-us-east-1.amazonaws.com/data/google/011_banana_google_512k.tgz",
+        "description": "YCB Banana - 유기적 형태 객체",
+    },
 }
 
 # 대체 소스: YCB 공식 사이트가 안 될 경우
 YCB_ALTERNATIVE_URLS = {
     "025_mug": [
         "https://ycb-benchmarks.s3.amazonaws.com/data/google/025_mug_google_512k.tgz",
-    ]
+    ],
+    "006_mustard_bottle": [
+        "https://ycb-benchmarks.s3.amazonaws.com/data/google/006_mustard_bottle_google_512k.tgz",
+    ],
+    "035_power_drill": [
+        "https://ycb-benchmarks.s3.amazonaws.com/data/google/035_power_drill_google_512k.tgz",
+    ],
+    "011_banana": [
+        "https://ycb-benchmarks.s3.amazonaws.com/data/google/011_banana_google_512k.tgz",
+    ],
 }
 
 ASSETS_DIR = Path(__file__).parent.parent / "assets" / "ycb"
