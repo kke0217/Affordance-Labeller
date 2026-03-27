@@ -7,3 +7,6 @@ Thumbs.db
 
 # Claude Code
 .claude/
+
+# Phase 3 Private (Obsidian Kanban 전용)
+Phase3_Private/
