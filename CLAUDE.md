@@ -22,9 +22,13 @@ Affordance_Labeller/
 ├── docs/                  ← 연구 계획 문서 (Obsidian)
 │   ├── 00_프로젝트_개요.md
 │   ├── 01_MVP_수정본_실행계획안.md
-│   ├── 02_Phase_2_계획안.md    ← Phase 2 실행계획
 │   ├── 03_데이터_스키마_초안.md
-│   ├── Phase_1_일별_실행기록.md ← Phase 1 실행 기록
+│   ├── Phase1/                ← Phase 1 문서 (완료)
+│   ├── Phase2/                ← Phase 2 문서 (완료)
+│   ├── Phase3/                ← Phase 3 문서 (진행중)
+│   │   ├── Phase3_칸반보드.md  ← 칸반 보드
+│   │   ├── 작업카드/           ← Sprint별 작업 카드
+│   │   └── 주간로그/
 │   └── Claude_Code_이관_가이드.md
 └── src/                   ← 소스 코드
     ├── app/
