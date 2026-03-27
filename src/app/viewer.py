@@ -206,7 +206,7 @@ class MeshViewer:
         if self.mesh_handle:
             self.mesh_handle.remove()
         self.mesh_handle = self.server.scene.add_mesh_trimesh(
-            name="/object/mug",
+            name="/object/mesh",
             mesh=mesh,
         )
         print("[viewer] part 색상 오버레이 적용")

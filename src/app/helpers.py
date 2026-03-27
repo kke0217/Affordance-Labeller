@@ -87,7 +87,7 @@ def apply_affordance_overlay(state: AppState):
     if state.viewer.mesh_handle:
         state.viewer.mesh_handle.remove()
     state.viewer.mesh_handle = state.server.scene.add_mesh_trimesh(
-        name="/object/mug", mesh=mesh,
+        name="/object/mesh", mesh=mesh,
     )
 
 
@@ -109,5 +109,5 @@ def apply_mask_overlay(state: AppState):
     if state.viewer.mesh_handle:
         state.viewer.mesh_handle.remove()
     state.viewer.mesh_handle = state.server.scene.add_mesh_trimesh(
-        name="/object/mug", mesh=mesh,
+        name="/object/mesh", mesh=mesh,
     )

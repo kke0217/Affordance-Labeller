@@ -60,7 +60,7 @@ def main():
     if args.mesh:
         state.mesh_path = args.mesh
         if state.viewer.load_mesh(args.mesh):
-            state.viewer.display_mesh("mug")
+            state.viewer.display_mesh("mesh")
             state.viewer.display_canonical_frame(state.label.get("canonical_frame", {}))
 
             if state.label.get("parts"):

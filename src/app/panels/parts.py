@@ -43,7 +43,7 @@ def _update_part_colors(state):
     if state.viewer.mesh_handle:
         state.viewer.mesh_handle.remove()
     state.viewer.mesh_handle = state.server.scene.add_mesh_trimesh(
-        name="/object/mug", mesh=mesh,
+        name="/object/mesh", mesh=mesh,
     )
 
 
@@ -192,6 +192,6 @@ def setup(state: AppState):
                     vertex_colors=np.full((len(mesh.vertices), 4), [180, 180, 180, 255], dtype=np.uint8),
                 )
                 state.viewer.mesh_handle = server.scene.add_mesh_trimesh(
-                    name="/object/mug", mesh=mesh,
+                    name="/object/mesh", mesh=mesh,
                 )
             state.set_status("**Parts**: 전부 삭제됨")
