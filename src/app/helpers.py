@@ -6,7 +6,7 @@ import numpy as np
 import trimesh
 
 from state import AppState
-from viewer import PART_COLORS, AFFORDANCE_COLORS
+from viewer import PART_COLORS, AFFORDANCE_COLORS, get_part_color
 
 
 # ============================================================
@@ -78,7 +78,7 @@ def apply_affordance_overlay(state: AppState):
     for part in state.label.get("parts", []):
         indices = part.get("vertex_indices", [])
         if indices:
-            colors[indices] = PART_COLORS.get(part["name"], PART_COLORS["other"])
+            colors[indices] = get_part_color(part["name"])
     for aff in state.label.get("affordances", []):
         indices = aff.get("vertex_indices", [])
         if indices:

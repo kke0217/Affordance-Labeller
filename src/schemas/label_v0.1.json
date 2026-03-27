@@ -82,8 +82,7 @@
           },
           "name": {
             "type": "string",
-            "enum": ["body", "handle", "rim", "interior", "base", "other"],
-            "description": "파트 이름"
+            "description": "파트 이름 (자유 입력 가능: body, handle, rim, grip, trigger 등)"
           },
           "vertex_indices": {
             "type": "array",

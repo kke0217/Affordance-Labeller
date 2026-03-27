@@ -1,36 +1,19 @@
-"""Candidate Poses 패널 — pose 추가/삭제 + 연결 + rotation 편집"""
+"""Candidate Poses 패널 — TransformControls 기즈모로 6D pose 직접 조작"""
 
 import numpy as np
-from scipy.spatial.transform import Rotation
 
 from state import AppState
 from helpers import format_poses
 
 
-def _euler_to_xyzw(roll_deg, pitch_deg, yaw_deg):
-    """Euler 각도(deg) → quaternion [x, y, z, w]"""
-    r = Rotation.from_euler("xyz", [roll_deg, pitch_deg, yaw_deg], degrees=True)
-    xyzw = r.as_quat()  # scipy: [x, y, z, w]
-    return xyzw.tolist()
-
-
-def _xyzw_to_euler(xyzw):
-    """quaternion [x, y, z, w] → Euler 각도(deg)"""
-    r = Rotation.from_quat(xyzw)
-    return r.as_euler("xyz", degrees=True).tolist()
-
-
 def setup(state: AppState):
     server = state.server
 
+    # 현재 편집 중인 기즈모 핸들
+    gizmo_state = {"handle": None, "editing": False}
+
     with server.gui.add_folder("Candidate Poses"):
         gui_name = server.gui.add_text("Pose Name", initial_value="grasp_01")
-        gui_pos = server.gui.add_vector3(
-            "Position", initial_value=(0.0, 0.05, 0.04), step=0.005,
-        )
-        gui_rot = server.gui.add_vector3(
-            "Rotation (deg)", initial_value=(0.0, 0.0, 0.0), step=5.0,
-        )
         gui_grasp = server.gui.add_dropdown(
             "Grasp Type",
             options=["pinch", "power", "lateral", "hook", "precision", "custom"],
@@ -49,8 +32,17 @@ def setup(state: AppState):
             options=["(none)"] + [m["mask_id"] for m in state.label.get("contact_region_masks", [])],
             initial_value="(none)",
         )
-        add_btn = server.gui.add_button("Add Pose")
+
+        server.gui.add_markdown("---\n**Pose 배치 (드래그로 조작)**")
+        place_btn = server.gui.add_button("Place Gizmo")
+        confirm_btn = server.gui.add_button("Confirm Pose")
+        cancel_btn = server.gui.add_button("Cancel")
         remove_btn = server.gui.add_button("Remove Last Pose")
+
+        server.gui.add_markdown(
+            "*Place Gizmo → 3D 뷰에서 화살표/링을 드래그하여 위치·회전 조정 → Confirm*"
+        )
+
         state.gui_pose_info = server.gui.add_markdown(
             format_poses(state.label.get("candidate_poses", []))
         )
@@ -67,32 +59,82 @@ def setup(state: AppState):
         state.register_refresh("affordances_changed", _refresh_link_options)
         state.register_refresh("masks_changed", _refresh_link_options)
 
-        @add_btn.on_click
-        def on_add(_):
+        @place_btn.on_click
+        def on_place(_):
             name = gui_name.value.strip()
             if not name:
                 state.set_status("**Error**: pose 이름을 입력하세요")
                 return
-            pos = list(gui_pos.value)
-            rot_deg = list(gui_rot.value)
-            rotation_xyzw = _euler_to_xyzw(*rot_deg)
+            # 기존 기즈모 제거
+            if gizmo_state["handle"] is not None:
+                gizmo_state["handle"].remove()
+
+            # 기즈모를 객체 중심 부근에 배치
+            init_pos = (0.0, 0.0, 0.04)
+            if state.viewer.loaded_mesh is not None:
+                center = state.viewer.loaded_mesh.vertices.mean(axis=0)
+                init_pos = tuple(center)
+
+            handle = server.scene.add_transform_controls(
+                name=f"/gizmo/{name}",
+                scale=0.07,
+                position=init_pos,
+                wxyz=(1.0, 0.0, 0.0, 0.0),
+                depth_test=False,
+                opacity=0.9,
+            )
+            gizmo_state["handle"] = handle
+            gizmo_state["editing"] = True
+            state.set_status(
+                f"**Gizmo 배치**: {name}\n\n"
+                "화살표=이동, 링=회전 | Confirm으로 확정"
+            )
+
+        @confirm_btn.on_click
+        def on_confirm(_):
+            handle = gizmo_state["handle"]
+            if handle is None or not gizmo_state["editing"]:
+                state.set_status("**Error**: 먼저 Place Gizmo를 눌러주세요")
+                return
+
+            name = gui_name.value.strip()
+            pos = list(handle.position)
+            wxyz = list(handle.wxyz)
+            # wxyz → xyzw 변환 (Viser는 wxyz, 스키마는 xyzw)
+            rotation_xyzw = [wxyz[1], wxyz[2], wxyz[3], wxyz[0]]
 
             pose_data = {
                 "pose_id": f"pose_{name}", "name": name,
-                "translation": pos, "rotation_xyzw": rotation_xyzw,
+                "translation": [float(p) for p in pos],
+                "rotation_xyzw": [float(r) for r in rotation_xyzw],
                 "linked_affordance_id": gui_aff_link.value if gui_aff_link.value != "(none)" else "",
                 "linked_mask_id": gui_mask_link.value if gui_mask_link.value != "(none)" else "",
                 "semantic_tags": [], "grasp_type": gui_grasp.value,
                 "hand_role": gui_hand.value, "confidence": 1.0,
                 "approved": False, "comment": "",
             }
+
             state.label["candidate_poses"].append(pose_data)
+
+            # 기즈모 제거 후 고정 좌표축으로 교체
+            handle.remove()
+            gizmo_state["handle"] = None
+            gizmo_state["editing"] = False
             state.viewer.display_pose(pose_data)
+
             state.gui_pose_info.content = format_poses(state.label["candidate_poses"])
             state.set_status(
-                f"**Pose**: {name} @ [{pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f}] "
-                f"rot [{rot_deg[0]:.0f}, {rot_deg[1]:.0f}, {rot_deg[2]:.0f}]°"
+                f"**Pose 확정**: {name} @ "
+                f"[{pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f}]"
             )
+
+        @cancel_btn.on_click
+        def on_cancel(_):
+            if gizmo_state["handle"] is not None:
+                gizmo_state["handle"].remove()
+                gizmo_state["handle"] = None
+                gizmo_state["editing"] = False
+                state.set_status("**Gizmo 취소**")
 
         @remove_btn.on_click
         def on_remove(_):

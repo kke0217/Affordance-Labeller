@@ -36,6 +36,28 @@ PART_COLORS = {
     "other":    (180, 180, 180, 200),
 }
 
+# 커스텀 part 이름용 색상 팔레트 (순환 사용)
+CUSTOM_PART_COLORS = [
+    (255, 100, 100, 220),   # 빨강
+    (100, 255, 100, 220),   # 초록
+    (100, 100, 255, 220),   # 파랑
+    (255, 200, 50, 220),    # 노랑
+    (255, 100, 255, 220),   # 마젠타
+    (100, 255, 255, 220),   # 시안
+    (255, 160, 50, 220),    # 주황
+    (160, 100, 255, 220),   # 보라
+]
+
+_custom_color_index = {}
+
+def get_part_color(name: str) -> tuple:
+    """part 이름에 맞는 색상 반환. 미리 정의된 이름이 없으면 팔레트에서 순환 할당"""
+    if name in PART_COLORS:
+        return PART_COLORS[name]
+    if name not in _custom_color_index:
+        _custom_color_index[name] = len(_custom_color_index) % len(CUSTOM_PART_COLORS)
+    return CUSTOM_PART_COLORS[_custom_color_index[name]]
+
 # Affordance별 색상
 AFFORDANCE_COLORS = {
     "graspable":       (0, 255, 0, 180),
@@ -175,7 +197,7 @@ class MeshViewer:
         colors = np.full((len(mesh.vertices), 4), [180, 180, 180, 255], dtype=np.uint8)
 
         for part_name, indices in part_vertex_indices.items():
-            color = PART_COLORS.get(part_name, PART_COLORS["other"])
+            color = get_part_color(part_name)
             colors[indices] = color
 
         mesh.visual = trimesh.visual.ColorVisuals(mesh=mesh, vertex_colors=colors)
@@ -193,7 +215,7 @@ class MeshViewer:
         """part_vertex_indices를 JSON parts 리스트로 변환"""
         parts = []
         for name, indices in part_vertex_indices.items():
-            color = PART_COLORS.get(name, PART_COLORS["other"])
+            color = get_part_color(name)
             parts.append({
                 "part_id": f"part_{name}",
                 "name": name,

@@ -1,0 +1,139 @@
+{
+  "schema_version": "0.1",
+  "object_id": "ycb_035_power_drill",
+  "asset_version": "",
+  "input_type": "mesh",
+  "input_file": "",
+  "canonical_frame": {
+    "origin": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "axis_x": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "axis_y": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "axis_z": [
+      0.0,
+      0.0,
+      1.0
+    ]
+  },
+  "parts": [
+    {
+      "part_id": "part_handle_thumb",
+      "name": "handle_thumb",
+      "vertex_indices": [],
+      "face_indices": [],
+      "visible": true,
+      "color": [
+        1.0,
+        0.39215686274509803,
+        0.39215686274509803,
+        0.8627450980392157
+      ],
+      "comment": "",
+      "vertex_indices_file": "ycb_035_power_drill_vertices/part_handle_thumb.npy"
+    },
+    {
+      "part_id": "part_handle_palm",
+      "name": "handle_palm",
+      "vertex_indices": [],
+      "face_indices": [],
+      "visible": true,
+      "color": [
+        0.39215686274509803,
+        1.0,
+        0.39215686274509803,
+        0.8627450980392157
+      ],
+      "comment": "",
+      "vertex_indices_file": "ycb_035_power_drill_vertices/part_handle_palm.npy"
+    }
+  ],
+  "affordances": [
+    {
+      "affordance_id": "aff_handle_thumb_graspable",
+      "label": "graspable",
+      "part_ref": "part_handle_thumb",
+      "vertex_indices": [],
+      "face_indices": [],
+      "semantic_tags": [
+        "pick_up"
+      ],
+      "source_type": "manual",
+      "confidence": 1.0,
+      "comment": "",
+      "vertex_indices_file": "ycb_035_power_drill_vertices/aff_handle_thumb_graspable.npy"
+    },
+    {
+      "affordance_id": "aff_handle_palm_graspable",
+      "label": "graspable",
+      "part_ref": "part_handle_palm",
+      "vertex_indices": [],
+      "face_indices": [],
+      "semantic_tags": [
+        "pick_up"
+      ],
+      "source_type": "manual",
+      "confidence": 1.0,
+      "comment": "",
+      "vertex_indices_file": "ycb_035_power_drill_vertices/aff_handle_palm_graspable.npy"
+    }
+  ],
+  "contact_region_masks": [
+    {
+      "mask_id": "mask_body_power_handle_thumb_handle_palm",
+      "mask_type": "body_power",
+      "part_ref": "part_handle_thumb",
+      "patch_a": {
+        "vertex_indices": [],
+        "face_indices": [],
+        "finger_role": "thumb",
+        "vertex_indices_file": "ycb_035_power_drill_vertices/mask_body_power_handle_thumb_handle_palm_patch_a.npy"
+      },
+      "patch_b": {
+        "vertex_indices": [],
+        "face_indices": [],
+        "finger_role": "palm",
+        "vertex_indices_file": "ycb_035_power_drill_vertices/mask_body_power_handle_thumb_handle_palm_patch_b.npy"
+      },
+      "comment": ""
+    }
+  ],
+  "candidate_poses": [
+    {
+      "pose_id": "pose_grasp_01",
+      "name": "grasp_01",
+      "translation": [
+        -0.008908131012587105,
+        -0.028392311352823017,
+        0.023298688357049843
+      ],
+      "rotation_xyzw": [
+        8.736407765540566e-33,
+        0.7087737066379487,
+        1.0920509706925712e-33,
+        0.7054359168476629
+      ],
+      "linked_affordance_id": "aff_handle_thumb_graspable",
+      "linked_mask_id": "mask_body_power_handle_thumb_handle_palm",
+      "semantic_tags": [],
+      "grasp_type": "pinch",
+      "hand_role": "right",
+      "confidence": 1.0,
+      "approved": false,
+      "comment": ""
+    }
+  ],
+  "annotator": "고광은",
+  "review_status": "draft",
+  "updated_at": "2026-03-27T01:49:53.659642+00:00"
+}
