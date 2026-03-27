@@ -1,0 +1,22 @@
+{
+  "manifest_version": "1.0",
+  "created_at": "2026-03-27T06:15:49.850810+00:00",
+  "file_count": 3,
+  "files": {
+    "ycb_025_mug.json": {
+      "type": "label_json",
+      "size": 1797,
+      "sha256": "1c5eb311480b983a36550aaa14f3049a9016a34fc7a45df3b518c1c953b41744"
+    },
+    "ycb_025_mug_vertices/aff_body_pour_support.npy": {
+      "type": "vertex_indices",
+      "size": 829204,
+      "sha256": "493b2d26b51980abbdee6eb6edf04e5e5f5540077bf834c71b060823b4353f0c"
+    },
+    "ycb_025_mug_vertices/part_body.npy": {
+      "type": "vertex_indices",
+      "size": 835864,
+      "sha256": "b655436574a2f5c84af845b15f0468bf3e8a8c1aa2f596007b1295b9b5d1e79d"
+    }
+  }
+}

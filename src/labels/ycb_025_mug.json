@@ -1,0 +1,91 @@
+{
+  "schema_version": "0.1",
+  "object_id": "ycb_025_mug",
+  "asset_version": "",
+  "input_type": "mesh",
+  "input_file": "",
+  "canonical_frame": {
+    "origin": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "axis_x": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "axis_y": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "axis_z": [
+      0.0,
+      0.0,
+      1.0
+    ]
+  },
+  "parts": [
+    {
+      "part_id": "part_body",
+      "name": "body",
+      "vertex_indices": [],
+      "face_indices": [],
+      "visible": true,
+      "color": [
+        0.5882352941176471,
+        0.5882352941176471,
+        0.7843137254901961,
+        0.7843137254901961
+      ],
+      "comment": "",
+      "vertex_indices_file": "ycb_025_mug_vertices/part_body.npy"
+    }
+  ],
+  "affordances": [
+    {
+      "affordance_id": "aff_body_pour_support",
+      "label": "pour_support",
+      "part_ref": "part_body",
+      "vertex_indices": [],
+      "face_indices": [],
+      "semantic_tags": [
+        "pour_ready"
+      ],
+      "source_type": "manual",
+      "confidence": 1.0,
+      "comment": "",
+      "vertex_indices_file": "ycb_025_mug_vertices/aff_body_pour_support.npy"
+    }
+  ],
+  "contact_region_masks": [],
+  "candidate_poses": [
+    {
+      "pose_id": "pose_grasp_01",
+      "name": "grasp_01",
+      "translation": [
+        0.0,
+        0.0,
+        0.04
+      ],
+      "rotation_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "linked_affordance_id": "aff_body_pour_support",
+      "linked_mask_id": "",
+      "semantic_tags": [],
+      "grasp_type": "pinch",
+      "hand_role": "right",
+      "confidence": 1.0,
+      "approved": false,
+      "comment": ""
+    }
+  ],
+  "annotator": "고광은",
+  "review_status": "draft",
+  "updated_at": "2026-03-27T06:15:49.754833+00:00"
+}
