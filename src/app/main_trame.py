@@ -93,14 +93,34 @@ class TrameMeshViewer:
 # Custom Interactor Style (Ctrl+orbit, 일반=painting)
 # ============================================================
 class PaintInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
+    """
+    왼쪽 클릭/드래그 = painting (칠하기)
+    오른쪽 클릭/드래그 = erasing (지우기)
+    Ctrl+왼쪽 드래그 = orbit 회전
+    """
     def __init__(self, app):
         self.app = app
         self.AddObserver("LeftButtonPressEvent", self.on_left_press)
         self.AddObserver("LeftButtonReleaseEvent", self.on_left_release)
+        self.AddObserver("RightButtonPressEvent", self.on_right_press)
+        self.AddObserver("RightButtonReleaseEvent", self.on_right_release)
         self.AddObserver("MouseMoveEvent", self.on_mouse_move)
-        self._press_pos = None
+        self._left_press_pos = None
+        self._right_press_pos = None
         self._dragging = False
 
+    def _pick_position(self, pos):
+        """화면 좌표 → 3D world position (CellPicker)"""
+        iren = self.GetInteractor()
+        renderer = iren.GetRenderWindow().GetRenderers().GetFirstRenderer()
+        picker = vtk.vtkCellPicker()
+        picker.SetTolerance(0.005)
+        picker.Pick(pos[0], pos[1], 0, renderer)
+        if picker.GetCellId() < 0:
+            return None
+        return np.array(picker.GetPickPosition())
+
+    # --- Left Button (paint / orbit) ---
     def on_left_press(self, obj, event):
         iren = self.GetInteractor()
         ctrl = iren.GetControlKey()
@@ -112,7 +132,13 @@ class PaintInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
         if not self.app["paint_active"]:
             self.OnLeftButtonDown()
             return
-        self._press_pos = iren.GetEventPosition()
+        # pose 배치 모드
+        if self.app["pose_place_mode"]:
+            hit = self._pick_position(iren.GetEventPosition())
+            if hit is not None:
+                self.app.place_pose_at(hit)
+            return
+        self._left_press_pos = iren.GetEventPosition()
         self._dragging = False
 
     def on_left_release(self, obj, event):
@@ -126,11 +152,35 @@ class PaintInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
         if not self.app["paint_active"]:
             self.OnLeftButtonUp()
             return
-        if not self._dragging and self._press_pos:
-            self._do_pick(self._press_pos)
-        self._press_pos = None
+        if not self._dragging and self._left_press_pos:
+            hit = self._pick_position(self._left_press_pos)
+            if hit is not None:
+                self.app.paint_at(hit)
+        self._left_press_pos = None
         self._dragging = False
 
+    # --- Right Button (erase) ---
+    def on_right_press(self, obj, event):
+        iren = self.GetInteractor()
+        if not self.app["paint_active"]:
+            self.OnRightButtonDown()
+            return
+        self._right_press_pos = iren.GetEventPosition()
+        self._dragging = False
+
+    def on_right_release(self, obj, event):
+        iren = self.GetInteractor()
+        if not self.app["paint_active"]:
+            self.OnRightButtonUp()
+            return
+        if not self._dragging and self._right_press_pos:
+            hit = self._pick_position(self._right_press_pos)
+            if hit is not None:
+                self.app.erase_at(hit)
+        self._right_press_pos = None
+        self._dragging = False
+
+    # --- Mouse Move ---
     def on_mouse_move(self, obj, event):
         iren = self.GetInteractor()
         ctrl = iren.GetControlKey()
@@ -139,24 +189,25 @@ class PaintInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
             self.OnMouseMove()
             iren.SetControlKey(1)
             return
-        if self._press_pos is not None:
+        # 왼쪽 드래그 painting
+        if self._left_press_pos is not None:
             cur = iren.GetEventPosition()
-            if abs(cur[0] - self._press_pos[0]) > 3 or abs(cur[1] - self._press_pos[1]) > 3:
+            if abs(cur[0] - self._left_press_pos[0]) > 3 or abs(cur[1] - self._left_press_pos[1]) > 3:
                 self._dragging = True
-                self._do_pick(cur)
+                hit = self._pick_position(cur)
+                if hit is not None:
+                    self.app.paint_at(hit)
+            return
+        # 오른쪽 드래그 erasing
+        if self._right_press_pos is not None:
+            cur = iren.GetEventPosition()
+            if abs(cur[0] - self._right_press_pos[0]) > 3 or abs(cur[1] - self._right_press_pos[1]) > 3:
+                self._dragging = True
+                hit = self._pick_position(cur)
+                if hit is not None:
+                    self.app.erase_at(hit)
             return
         self.OnMouseMove()
-
-    def _do_pick(self, pos):
-        iren = self.GetInteractor()
-        renderer = iren.GetRenderWindow().GetRenderers().GetFirstRenderer()
-        picker = vtk.vtkCellPicker()
-        picker.SetTolerance(0.005)
-        picker.Pick(pos[0], pos[1], 0, renderer)
-        if picker.GetCellId() < 0:
-            return
-        hit = np.array(picker.GetPickPosition())
-        self.app.paint_at(hit)
 
 
 # ============================================================
@@ -188,6 +239,7 @@ class AffordanceApp:
 
         # 상태 초기화
         self.state.paint_active = False
+        self.state.pose_place_mode = False
         self.state.current_part = "body"
         self.state.brush_radius = 0.01
         self.state.object_id = self.label.get("object_id", object_id)
@@ -232,13 +284,74 @@ class AffordanceApp:
         self.state.parts_text = self._fmt_parts()
         self.state.status_msg = f"painted {len(nearby)}v → {part_name}"
 
+    # === Erasing (오른쪽 클릭/드래그) ===
+    def erase_at(self, hit_point):
+        """hit_point 주변 vertex를 모든 part에서 제거 → 회색으로 복원"""
+        mesh = self.viewer.pv_mesh
+        radius = self.state.brush_radius
+        dists = np.linalg.norm(mesh.points - hit_point, axis=1)
+        nearby = set(np.where(dists < radius)[0].tolist())
+        if not nearby:
+            return
+        for p in self.label["parts"]:
+            p["vertex_indices"] = [v for v in p["vertex_indices"] if v not in nearby]
+        self.viewer.update_colors(self.label)
+        self.ctrl.view_update()
+        self.state.parts_text = self._fmt_parts()
+        self.state.status_msg = f"erased {len(nearby)}v"
+
+    # === Pose 배치 (클릭 위치에 pose 생성) ===
+    def place_pose_at(self, hit_point):
+        """클릭한 3D 위치에 pose를 배치 — 연속 배치 가능"""
+        base_name = self.state.pose_name.strip()
+        if not base_name:
+            base_name = "grasp"
+        # 자동 번호 부여 (중복 방지)
+        idx = len(self.label["candidate_poses"])
+        name = f"{base_name}_{idx:02d}"
+        while any(p["pose_id"] == f"pose_{name}" for p in self.label["candidate_poses"]):
+            idx += 1
+            name = f"{base_name}_{idx:02d}"
+
+        pos = [float(hit_point[0]), float(hit_point[1]), float(hit_point[2])]
+        self.label["candidate_poses"].append({
+            "pose_id": f"pose_{name}", "name": name,
+            "translation": pos,
+            "rotation_xyzw": [0.0, 0.0, 0.0, 1.0],
+            "linked_affordance_id": self.state.pose_aff_link if self.state.pose_aff_link != "(none)" else "",
+            "linked_mask_id": self.state.pose_mask_link if self.state.pose_mask_link != "(none)" else "",
+            "semantic_tags": [], "grasp_type": self.state.pose_grasp_type,
+            "hand_role": self.state.pose_hand, "confidence": 1.0,
+            "approved": False, "comment": "",
+        })
+        # pose 위치에 sphere marker 추가
+        sphere = pv.Sphere(radius=0.003, center=pos)
+        self.plotter.add_mesh(sphere, color="yellow", name=f"pose_marker_{name}")
+
+        # 연속 배치 모드 유지 (pose_place_mode = True 유지)
+        self.state.pose_text = self._fmt_poses()
+        self.ctrl.view_update()
+        self.state.status_msg = f"Pose: {name} @ [{pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f}] (계속 클릭하여 추가)"
+        print(f"[pose] {name} at {pos}")
+
     # === Actions ===
     def toggle_paint(self, active):
         self.state.paint_active = active
+        self.state.pose_place_mode = False
         if active:
-            self.state.status_msg = f"Painting: '{self.state.current_part}' — 클릭/드래그=칠하기, Ctrl+드래그=orbit"
+            self.state.status_msg = f"Painting: '{self.state.current_part}' — 좌클릭=칠하기, 우클릭=지우기, Ctrl+드래그=orbit"
         else:
             self.state.status_msg = "orbit 모드"
+
+    def toggle_pose_place(self):
+        self.state.pose_place_mode = True
+        self.state.paint_active = True
+        self.state.status_msg = "Pose 배치 모드: 클릭=pose 생성, Ctrl+드래그=orbit | Stop으로 종료"
+
+    def stop_pose_place(self):
+        self.state.pose_place_mode = False
+        self.state.paint_active = False
+        self.state.status_msg = "Pose 배치 종료"
 
     def add_part(self):
         name = self.state.current_part.strip()
@@ -336,22 +449,17 @@ class AffordanceApp:
         self._refresh_dropdowns()
         self.state.status_msg = f"Mask: {mask_type} A:{a_part} B:{b_part}"
 
-    def add_pose(self):
-        name = self.state.pose_name.strip()
-        if not name:
-            return
-        self.label["candidate_poses"].append({
-            "pose_id": f"pose_{name}", "name": name,
-            "translation": [0.0, 0.0, 0.04],
-            "rotation_xyzw": [0.0, 0.0, 0.0, 1.0],
-            "linked_affordance_id": self.state.pose_aff_link if self.state.pose_aff_link != "(none)" else "",
-            "linked_mask_id": self.state.pose_mask_link if self.state.pose_mask_link != "(none)" else "",
-            "semantic_tags": [], "grasp_type": self.state.pose_grasp_type,
-            "hand_role": self.state.pose_hand, "confidence": 1.0,
-            "approved": False, "comment": "",
-        })
-        self.state.pose_text = self._fmt_poses()
-        self.state.status_msg = f"Pose 추가: {name}"
+    def remove_last_pose(self):
+        if self.label["candidate_poses"]:
+            removed = self.label["candidate_poses"].pop()
+            # 3D 뷰포트에서 마커 제거
+            marker_name = f"pose_marker_{removed['name']}"
+            self.plotter.remove_actor(marker_name)
+            self.ctrl.view_update()
+            self.state.pose_text = self._fmt_poses()
+            self.state.status_msg = f"Removed: {removed['pose_id']}"
+        else:
+            self.state.status_msg = "삭제할 pose 없음"
 
     def do_save(self):
         self.label["object_id"] = self.state.object_id
@@ -505,7 +613,12 @@ class AffordanceApp:
                         vuetify3.VSelect(v_model=("pose_hand",), label="Hand", items=("['left','right','either']",), density="compact", class_="mx-2 mt-1", hide_details=True)
                         vuetify3.VSelect(v_model=("pose_aff_link",), label="Link Aff", items=("aff_link_options",), density="compact", class_="mx-2 mt-1", hide_details=True)
                         vuetify3.VSelect(v_model=("pose_mask_link",), label="Link Mask", items=("mask_link_options",), density="compact", class_="mx-2 mt-1", hide_details=True)
-                        vuetify3.VBtn("Add Pose", click=self.add_pose, size="small", block=True, class_="mx-2 mt-1")
+                        with vuetify3.VRow(class_="mx-1 mt-1", no_gutters=True):
+                            with vuetify3.VCol(cols=8):
+                                vuetify3.VBtn("Place Pose", click=self.toggle_pose_place, color="orange", size="small", block=True)
+                            with vuetify3.VCol(cols=4):
+                                vuetify3.VBtn("Stop", click=self.stop_pose_place, color="red", size="small", block=True)
+                        vuetify3.VBtn("Remove Last", click=self.remove_last_pose, size="x-small", block=True, class_="mx-2 mt-1")
                         vuetify3.VCardText("{{ pose_text }}", class_="text-caption pa-1")
 
                         vuetify3.VDivider(class_="my-2")
