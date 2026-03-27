@@ -14,6 +14,7 @@ import numpy as np
 import pyvista as pv
 import trimesh
 import vtk
+from scipy.spatial.transform import Rotation
 
 from trame.app import get_server
 from trame.ui.vuetify3 import SinglePageLayout
@@ -300,13 +301,55 @@ class AffordanceApp:
         self.state.parts_text = self._fmt_parts()
         self.state.status_msg = f"erased {len(nearby)}v"
 
+    # === Pose 시각화 헬퍼 ===
+    def _create_pose_axes(self, name, pos, rotation_xyzw, scale=0.015):
+        """RGB 좌표축 화살표를 3D 뷰포트에 추가"""
+        rot = Rotation.from_quat(rotation_xyzw)  # xyzw
+        mat = rot.as_matrix()
+        origin = np.array(pos)
+        axes_data = [
+            ("x", mat[:, 0], "red"),
+            ("y", mat[:, 1], "green"),
+            ("z", mat[:, 2], "blue"),
+        ]
+        for axis_name, direction, color in axes_data:
+            arrow = pv.Arrow(
+                start=origin,
+                direction=direction,
+                scale=scale,
+                tip_length=0.3,
+                tip_radius=0.15,
+                shaft_radius=0.05,
+            )
+            actor_name = f"pose_{name}_{axis_name}"
+            self.plotter.add_mesh(arrow, color=color, name=actor_name)
+        # 중심에 작은 구체
+        sphere = pv.Sphere(radius=scale * 0.12, center=origin)
+        self.plotter.add_mesh(sphere, color="white", name=f"pose_{name}_center")
+
+    def _remove_pose_axes(self, name):
+        """pose의 좌표축 마커 제거"""
+        for suffix in ["x", "y", "z", "center"]:
+            actor_name = f"pose_{name}_{suffix}"
+            try:
+                self.plotter.remove_actor(actor_name)
+            except Exception:
+                pass
+
+    def _update_pose_axes(self, pose_data):
+        """pose의 좌표축을 현재 rotation으로 갱신"""
+        name = pose_data["name"]
+        self._remove_pose_axes(name)
+        self._create_pose_axes(
+            name, pose_data["translation"], pose_data["rotation_xyzw"]
+        )
+
     # === Pose 배치 (클릭 위치에 pose 생성) ===
     def place_pose_at(self, hit_point):
         """클릭한 3D 위치에 pose를 배치 — 연속 배치 가능"""
         base_name = self.state.pose_name.strip()
         if not base_name:
             base_name = "grasp"
-        # 자동 번호 부여 (중복 방지)
         idx = len(self.label["candidate_poses"])
         name = f"{base_name}_{idx:02d}"
         while any(p["pose_id"] == f"pose_{name}" for p in self.label["candidate_poses"]):
@@ -314,7 +357,7 @@ class AffordanceApp:
             name = f"{base_name}_{idx:02d}"
 
         pos = [float(hit_point[0]), float(hit_point[1]), float(hit_point[2])]
-        self.label["candidate_poses"].append({
+        pose_data = {
             "pose_id": f"pose_{name}", "name": name,
             "translation": pos,
             "rotation_xyzw": [0.0, 0.0, 0.0, 1.0],
@@ -323,16 +366,55 @@ class AffordanceApp:
             "semantic_tags": [], "grasp_type": self.state.pose_grasp_type,
             "hand_role": self.state.pose_hand, "confidence": 1.0,
             "approved": False, "comment": "",
-        })
-        # pose 위치에 sphere marker 추가
-        sphere = pv.Sphere(radius=0.003, center=pos)
-        self.plotter.add_mesh(sphere, color="yellow", name=f"pose_marker_{name}")
+        }
+        self.label["candidate_poses"].append(pose_data)
 
-        # 연속 배치 모드 유지 (pose_place_mode = True 유지)
+        # RGB 좌표축 마커
+        self._create_pose_axes(name, pos, [0.0, 0.0, 0.0, 1.0])
+
         self.state.pose_text = self._fmt_poses()
+        self._refresh_pose_select()
         self.ctrl.view_update()
-        self.state.status_msg = f"Pose: {name} @ [{pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f}] (계속 클릭하여 추가)"
+        self.state.status_msg = f"Pose: {name} @ [{pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f}]"
         print(f"[pose] {name} at {pos}")
+
+    # === Pose 회전 편집 ===
+    def update_selected_pose_rotation(self):
+        """선택된 pose의 rotation을 euler 슬라이더 값으로 갱신"""
+        sel = self.state.pose_select
+        if sel == "(none)":
+            return
+        pose = next((p for p in self.label["candidate_poses"] if p["name"] == sel), None)
+        if pose is None:
+            return
+        roll = self.state.pose_roll
+        pitch = self.state.pose_pitch
+        yaw = self.state.pose_yaw
+        rot = Rotation.from_euler("xyz", [roll, pitch, yaw], degrees=True)
+        pose["rotation_xyzw"] = rot.as_quat().tolist()
+        self._update_pose_axes(pose)
+        self.ctrl.view_update()
+        euler_str = f"[{roll:.0f}, {pitch:.0f}, {yaw:.0f}]°"
+        self.state.status_msg = f"Pose '{sel}' rotation: {euler_str}"
+
+    def on_pose_selected(self):
+        """pose 선택 시 해당 pose의 euler 값을 슬라이더에 반영"""
+        sel = self.state.pose_select
+        if sel == "(none)":
+            return
+        pose = next((p for p in self.label["candidate_poses"] if p["name"] == sel), None)
+        if pose is None:
+            return
+        euler = Rotation.from_quat(pose["rotation_xyzw"]).as_euler("xyz", degrees=True)
+        self.state.pose_roll = float(round(euler[0], 1))
+        self.state.pose_pitch = float(round(euler[1], 1))
+        self.state.pose_yaw = float(round(euler[2], 1))
+        self.state.status_msg = f"Selected: {sel}"
+
+    def _refresh_pose_select(self):
+        self.state.pose_select_options = ["(none)"] + [
+            p["name"] for p in self.label.get("candidate_poses", [])
+        ]
 
     # === Actions ===
     def toggle_paint(self, active):
@@ -452,11 +534,10 @@ class AffordanceApp:
     def remove_last_pose(self):
         if self.label["candidate_poses"]:
             removed = self.label["candidate_poses"].pop()
-            # 3D 뷰포트에서 마커 제거
-            marker_name = f"pose_marker_{removed['name']}"
-            self.plotter.remove_actor(marker_name)
+            self._remove_pose_axes(removed["name"])
             self.ctrl.view_update()
             self.state.pose_text = self._fmt_poses()
+            self._refresh_pose_select()
             self.state.status_msg = f"Removed: {removed['pose_id']}"
         else:
             self.state.status_msg = "삭제할 pose 없음"
@@ -547,6 +628,11 @@ class AffordanceApp:
         self.state.pose_hand = "right"
         self.state.pose_aff_link = "(none)"
         self.state.pose_mask_link = "(none)"
+        self.state.pose_select = "(none)"
+        self.state.pose_select_options = ["(none)"]
+        self.state.pose_roll = 0
+        self.state.pose_pitch = 0
+        self.state.pose_yaw = 0
         self.state.aff_link_options = self._aff_ids()
         self.state.mask_link_options = self._mask_ids()
 
@@ -619,6 +705,34 @@ class AffordanceApp:
                             with vuetify3.VCol(cols=4):
                                 vuetify3.VBtn("Stop", click=self.stop_pose_place, color="red", size="small", block=True)
                         vuetify3.VBtn("Remove Last", click=self.remove_last_pose, size="x-small", block=True, class_="mx-2 mt-1")
+
+                        # --- Pose 회전 편집 ---
+                        vuetify3.VCardSubtitle("Rotation 편집", class_="pa-1 mt-2")
+                        vuetify3.VSelect(
+                            v_model=("pose_select",), label="Select Pose",
+                            items=("pose_select_options",),
+                            density="compact", class_="mx-2", hide_details=True,
+                            update_modelValue=(self.on_pose_selected, "[]"),
+                        )
+                        vuetify3.VSlider(
+                            v_model=("pose_roll", 0), label="Roll",
+                            min=-180, max=180, step=5,
+                            hide_details=True, class_="mx-2",
+                            update_modelValue=(self.update_selected_pose_rotation, "[]"),
+                        )
+                        vuetify3.VSlider(
+                            v_model=("pose_pitch", 0), label="Pitch",
+                            min=-180, max=180, step=5,
+                            hide_details=True, class_="mx-2",
+                            update_modelValue=(self.update_selected_pose_rotation, "[]"),
+                        )
+                        vuetify3.VSlider(
+                            v_model=("pose_yaw", 0), label="Yaw",
+                            min=-180, max=180, step=5,
+                            hide_details=True, class_="mx-2",
+                            update_modelValue=(self.update_selected_pose_rotation, "[]"),
+                        )
+
                         vuetify3.VCardText("{{ pose_text }}", class_="text-caption pa-1")
 
                         vuetify3.VDivider(class_="my-2")
