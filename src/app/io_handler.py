@@ -8,6 +8,7 @@ io_handler.py — JSON 저장/로드 및 검증 모듈
 - 빈 라벨 템플릿 생성 (create_empty_label)
 """
 
+import hashlib
 import json
 import os
 from datetime import datetime, timezone
@@ -61,6 +62,161 @@ def create_empty_label(
     }
 
 
+# ============================================================
+# Bundle Manifest
+# ============================================================
+MANIFEST_VERSION = "1.0"
+
+
+def _file_sha256(filepath: Path) -> str:
+    """파일의 SHA256 해시 반환"""
+    h = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _generate_manifest(json_path: Path, npy_dir: Path) -> dict:
+    """bundle manifest 생성"""
+    files = {}
+    # JSON 본문
+    files[json_path.name] = {
+        "type": "label_json",
+        "size": json_path.stat().st_size,
+        "sha256": _file_sha256(json_path),
+    }
+    # .npy 파일들
+    if npy_dir.exists():
+        for npy_file in sorted(npy_dir.glob("*.npy")):
+            rel_path = f"{npy_dir.name}/{npy_file.name}"
+            files[rel_path] = {
+                "type": "vertex_indices",
+                "size": npy_file.stat().st_size,
+                "sha256": _file_sha256(npy_file),
+            }
+    return {
+        "manifest_version": MANIFEST_VERSION,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "file_count": len(files),
+        "files": files,
+    }
+
+
+def _save_manifest(json_path: Path, npy_dir: Path):
+    """manifest.json을 npy_dir에 저장"""
+    manifest = _generate_manifest(json_path, npy_dir)
+    manifest_path = npy_dir / "manifest.json"
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2, ensure_ascii=False)
+    return manifest
+
+
+def validate_bundle(json_path: Path) -> list[dict]:
+    """bundle 무결성 검증 — manifest 기반 파일 존재 + checksum 확인
+
+    Returns:
+        경고/오류 리스트
+    """
+    issues = []
+    npy_dir = json_path.parent / f"{json_path.stem}_vertices"
+    manifest_path = npy_dir / "manifest.json"
+
+    if not npy_dir.exists():
+        # npy_dir가 없으면 인라인 JSON (v0.1 호환) — manifest 불필요
+        return issues
+
+    # manifest 존재 확인
+    if not manifest_path.exists():
+        issues.append({
+            "level": "warning",
+            "field": "manifest",
+            "message": f"manifest.json 없음: {npy_dir.name}/ (save로 재생성 가능)",
+        })
+        # manifest 없어도 .npy 참조 검사는 수행
+        return _check_npy_references(json_path, npy_dir, issues)
+
+    # manifest 로드
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        manifest = json.load(f)
+
+    # 파일 존재 + checksum 검증
+    for rel_path, file_info in manifest.get("files", {}).items():
+        full_path = json_path.parent / rel_path
+        if not full_path.exists():
+            issues.append({
+                "level": "error",
+                "field": "bundle",
+                "message": f"manifest에 등록된 파일 누락: {rel_path}",
+            })
+            continue
+        # checksum 확인
+        actual_hash = _file_sha256(full_path)
+        if actual_hash != file_info.get("sha256", ""):
+            issues.append({
+                "level": "error",
+                "field": "bundle",
+                "message": f"checksum 불일치: {rel_path}",
+            })
+
+    # 고아 파일 감지 (manifest에 없는 .npy)
+    manifest_files = set(manifest.get("files", {}).keys())
+    actual_npy = {f"{npy_dir.name}/{f.name}" for f in npy_dir.glob("*.npy")}
+    orphans = actual_npy - manifest_files
+    for orphan in orphans:
+        issues.append({
+            "level": "warning",
+            "field": "bundle",
+            "message": f"고아 파일 (manifest에 없음): {orphan}",
+        })
+
+    return issues
+
+
+def _check_npy_references(json_path: Path, npy_dir: Path, issues: list) -> list:
+    """JSON 내 vertex_indices_file 참조와 실제 .npy 파일 대조"""
+    with open(json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    referenced = set()
+    for part in data.get("parts", []):
+        if "vertex_indices_file" in part:
+            referenced.add(part["vertex_indices_file"])
+    for aff in data.get("affordances", []):
+        if "vertex_indices_file" in aff:
+            referenced.add(aff["vertex_indices_file"])
+    for mask in data.get("contact_region_masks", []):
+        for pk in ("patch_a", "patch_b"):
+            patch = mask.get(pk, {})
+            if "vertex_indices_file" in patch:
+                referenced.add(patch["vertex_indices_file"])
+
+    # 참조된 파일이 실제 존재하는지
+    for ref in referenced:
+        full_path = json_path.parent / ref
+        if not full_path.exists():
+            issues.append({
+                "level": "error",
+                "field": "bundle",
+                "message": f"참조된 .npy 파일 누락: {ref}",
+            })
+
+    # 고아 파일 (참조되지 않는 .npy)
+    actual_npy = {f"{npy_dir.name}/{f.name}" for f in npy_dir.glob("*.npy")}
+    orphans = actual_npy - referenced
+    for orphan in orphans:
+        issues.append({
+            "level": "warning",
+            "field": "bundle",
+            "message": f"고아 파일 (JSON에서 미참조): {orphan}",
+        })
+
+    return issues
+
+
+# ============================================================
+# Vertex Indices 분리/복원
+# ============================================================
 def _extract_vertices_to_npy(label_data: dict, npy_dir: Path) -> dict:
     """vertex_indices 배열을 .npy 파일로 분리하고 참조로 치환한 사본을 반환"""
     import copy
@@ -134,7 +290,9 @@ def save_label(label_data: dict, filepath: Optional[str] = None) -> str:
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(save_data, f, indent=2, ensure_ascii=False)
 
-    print(f"[save] 저장 완료: {filepath} + {npy_dir.name}/")
+    # manifest 생성
+    manifest = _save_manifest(json_path, npy_dir)
+    print(f"[save] 저장 완료: {filepath} + {npy_dir.name}/ ({manifest['file_count']} files)")
     return filepath
 
 
@@ -184,11 +342,22 @@ def load_label(filepath: str) -> dict:
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"라벨 파일을 찾을 수 없습니다: {filepath}")
 
+    json_path = Path(filepath)
     with open(filepath, "r", encoding="utf-8") as f:
         data = json.load(f)
 
+    # bundle 무결성 검증
+    bundle_issues = validate_bundle(json_path)
+    bundle_errors = [i for i in bundle_issues if i["level"] == "error"]
+    if bundle_errors:
+        for issue in bundle_errors:
+            print(f"[load] [ERROR] {issue['message']}")
+    for issue in bundle_issues:
+        if issue["level"] == "warning":
+            print(f"[load] [WARNING] {issue['message']}")
+
     # .npy 참조 복원
-    base_dir = Path(filepath).parent
+    base_dir = json_path.parent
     data = _restore_vertices_from_npy(data, base_dir)
 
     print(f"[load] 로드 완료: {filepath}")
