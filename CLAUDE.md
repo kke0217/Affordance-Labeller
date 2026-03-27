@@ -53,7 +53,7 @@ Affordance_Labeller/
 cd src/
 bash scripts/setup_env.sh                   # 환경 설치
 python scripts/download_ycb.py              # YCB mug 다운로드
-python app/main.py --mesh assets/ycb/025_mug/google_512k/nontextured.ply  # 실행
+python app/main.py --mesh assets/ycb/025_mug/google_512k/nontextured.ply --server  # 실행
 ```
 
 ## JSON 스키마 핵심 구조 (v0.1)

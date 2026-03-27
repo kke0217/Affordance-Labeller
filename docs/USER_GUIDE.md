@@ -1,459 +1,197 @@
-# Affordance Labeller 사용자 가이드 (v2.0)
+# Affordance Labeller 사용자 가이드 (v3.0 — PyVista+Trame)
 
 > 이 문서는 Affordance Labeller를 처음 사용하는 사람이 **설치부터 라벨 저장까지** 독립적으로 수행할 수 있도록 작성되었습니다.
-> v2.0에서는 **YCB 다종 객체 지원**, **click-to-paint 접촉 영역 편집**, **6D pose rotation 편집**이 추가되었습니다.
-
----
-
-## 목차
-
-1. [설치 및 실행](#1-설치-및-실행)
-2. [화면 구성](#2-화면-구성)
-3. [라벨링 워크플로우](#3-라벨링-워크플로우)
-   - [Step 1: Part 정의](#step-1-part-정의)
-   - [Step 2: Affordance 할당](#step-2-affordance-할당)
-   - [Step 3: Contact Mask 지정 + 편집](#step-3-contact-mask-지정--편집)
-   - [Step 4: Candidate Pose 추가](#step-4-candidate-pose-추가)
-   - [Step 5: 저장](#step-5-저장)
-4. [기존 라벨 로드 및 검수](#4-기존-라벨-로드-및-검수)
-5. [지원 객체](#5-지원-객체)
-6. [용어 사전](#6-용어-사전)
-7. [색상 범례](#7-색상-범례)
-8. [FAQ / 문제 해결](#8-faq--문제-해결)
-9. [현재 버전의 제한 사항](#9-현재-버전의-제한-사항)
 
 ---
 
 ## 1. 설치 및 실행
 
-### 1.1 사전 요구사항
-
-- macOS 또는 Linux (Windows는 미테스트)
-- Python 3.10 이상
-- conda 또는 python venv
-- 웹 브라우저 (Chrome 권장)
-
-### 1.2 설치
+### 1.1 설치
 
 ```bash
-# 저장소 클론
 git clone https://github.com/kke0217/Affordance-Labeller.git
 cd Affordance-Labeller/src
-
-# 환경 설치 (conda 환경 생성 + 패키지 설치)
 bash scripts/setup_env.sh
-
-# conda 환경 활성화
 conda activate affordance_labeller
-
-# YCB 에셋 다운로드 (mug, mustard bottle, power drill, banana)
 python scripts/download_ycb.py
 ```
 
-### 1.3 서버 실행
+### 1.2 실행
 
 ```bash
 cd src/
 
 # YCB mug
-python app/main.py --mesh assets/ycb/025_mug/google_512k/nontextured.ply
-
-# YCB mustard bottle
-python app/main.py --mesh assets/ycb/006_mustard_bottle/google_512k/nontextured.ply --object-id ycb_006_mustard_bottle
+python app/main.py --mesh assets/ycb/025_mug/google_512k/nontextured.ply --server
 
 # YCB power drill
-python app/main.py --mesh assets/ycb/035_power_drill/google_512k/nontextured.ply --object-id ycb_035_power_drill
+python app/main.py --mesh assets/ycb/035_power_drill/google_512k/nontextured.ply --object-id ycb_035_power_drill --server
 
-# 임의 mesh 파일
-python app/main.py --mesh /path/to/your/object.ply --object-id my_object
+# 임의 mesh
+python app/main.py --mesh /path/to/object.ply --object-id my_object --server
 ```
 
-### 1.4 브라우저 접속
-
-웹 브라우저에서 **http://localhost:8080** 에 접속합니다.
-
-### 1.5 3D 뷰포트 조작
-
-| 조작 | 동작 |
-|------|------|
-| 마우스 왼쪽 드래그 | 회전 (orbit) |
-| 마우스 오른쪽 드래그 | 이동 (pan) |
-| 스크롤 | 줌 인/아웃 |
-
-### 1.6 서버 종료
-
-- 브라우저 사이드패널 **File → Quit Server** 버튼 클릭
-- 또는 다른 터미널에서: `kill $(lsof -ti:8080)`
+브라우저에서 **http://localhost:8080** 접속.
 
 ---
 
-## 2. 화면 구성
+## 2. 3D 뷰포트 조작
 
-```
-┌─────────────────────────────┬──────────────────┐
-│                             │  사이드패널 (UI)  │
-│     3D 뷰포트               │                  │
-│     (객체 메시)              │  ┌─ Object Info  │
-│                             │  ├─ Canonical Frame│
-│                             │  ├─ Parts         │
-│                             │  ├─ Affordances   │
-│                             │  ├─ Contact Masks │
-│                             │  ├─ Candidate Poses│
-│                             │  └─ File          │
-└─────────────────────────────┴──────────────────┘
-```
-
-| 폴더 | 역할 |
+| 조작 | 동작 |
 |------|------|
-| **Object Info** | 객체 ID, 입력 유형, 작성자, 검수 상태 |
-| **Canonical Frame** | 정규 좌표계 원점 설정 |
-| **Parts** | Auto Segment (mug 전용) 또는 수동 part 정의 (범용) |
-| **Affordances** | 각 part에 affordance class + semantic tag 부여 |
-| **Contact Masks** | 접촉 영역 지정 + **click-to-paint 편집** |
-| **Candidate Poses** | 6D pose 추가 (위치 + **회전** 편집) |
-| **File** | 저장 / 로드 / 검증 / 서버 종료 |
+| **Ctrl+왼쪽 드래그** | orbit 회전 |
+| **오른쪽 드래그** | 이동 (pan) — Paint 모드가 아닐 때 |
+| **스크롤** | 줌 인/아웃 |
+
+> **핵심**: orbit 회전은 항상 **Ctrl+드래그**입니다. 일반 드래그는 painting에 사용됩니다.
 
 ---
 
 ## 3. 라벨링 워크플로우
 
 ```
-Step 1         Step 2           Step 3              Step 4          Step 5
-Part 정의  →  Affordance 할당  →  Contact Mask 편집  →  Pose 추가  →  저장
+Part 정의 → Affordance 할당 → Contact Mask → Pose 배치 → 저장
 ```
-
----
 
 ### Step 1: Part 정의
 
-**목적**: 메시를 의미 있는 부위로 나눕니다.
-
 #### 방법 A: Auto Segment (mug 전용)
+1. 사이드패널 **Auto Segment (mug)** 클릭
+2. body(보라), handle(초록), rim(노랑), base(회색) 자동 분류
 
-머그컵일 경우 기하학 기반 자동 분류를 사용합니다.
-
-1. **Parts** 폴더를 엽니다.
-2. (선택) Handle Ratio / Rim % / Base % 슬라이더를 조정합니다.
-3. **Auto Segment (mug)** 버튼을 클릭합니다.
-4. 메시가 4가지 색상 (body=보라, handle=초록, rim=노랑, base=회색)으로 칠해집니다.
-
-#### 방법 B: 수동 Part 정의 (범용 — 모든 객체)
-
-mug 이외 객체, 또는 더 정밀한 part 정의가 필요할 때 사용합니다.
-
-1. **Parts** 폴더에서 **Part Name** 텍스트 필드에 part 이름을 입력합니다.
-   - 자유 입력 가능: `body`, `handle`, `grip`, `trigger`, `chuck`, `handle_thumb` 등
-   - 커스텀 이름에는 자동으로 구분 가능한 색상이 할당됩니다.
-2. **Add Empty Part** 버튼을 클릭합니다 — 빈 part가 생성됩니다.
-3. **Brush Radius** 슬라이더로 브러시 크기를 설정합니다 (기본 0.01m).
-4. **Start Painting** 버튼을 클릭합니다.
-5. **3D 뷰포트에서 메시를 클릭**합니다 — 클릭 위치 주변의 vertex가 해당 part에 할당되고 색상이 변경됩니다.
-6. 다른 각도를 칠하려면 **Stop Painting** → 뷰 회전 → **Start Painting** 반복합니다.
-7. 다른 part를 추가하려면 Part Name을 변경하고 1~6을 반복합니다.
+#### 방법 B: 수동 Part 정의 (범용)
+1. **Part Name** 에 이름 입력 (자유 텍스트: grip, trigger, chuck 등)
+2. **Add** 클릭
+3. **Paint** 클릭 → painting 모드 진입
+4. 3D 뷰에서 **왼쪽 클릭/드래그** → 해당 part 색상으로 칠해짐
+5. **오른쪽 클릭/드래그** → 칠한 영역 지우기 (회색 복원)
+6. **Ctrl+드래그** → orbit 회전 (painting 중에도 가능)
+7. **Stop** → painting 모드 종료
+8. 다른 part를 추가하려면 Part Name 변경 후 반복
 
 **팁**:
-- 한 vertex는 하나의 part에만 속합니다. 새 part로 칠하면 기존 part에서 자동 제거됩니다.
-- **Clear All Parts** 로 전체 part를 초기화할 수 있습니다.
-- 브러시가 클수록 (0.02~0.05) 한 번에 넓은 영역을 칠할 수 있습니다.
-- Contact Mask에서 접촉 영역을 세분화하려면 `handle_thumb`, `handle_finger` 등으로 part를 나눠 정의하세요.
-
-> **중요**: Painting 모드에서는 클릭이 vertex 선택으로 사용되므로 orbit 회전이 비활성화됩니다. **Stop Painting** 을 누르면 orbit이 복원됩니다.
-
-> **중요**: Part 정의가 완료되어야 Affordance, Contact Mask를 할당할 수 있습니다.
-
----
+- 한 vertex는 하나의 part에만 속합니다
+- Brush 슬라이더로 브러시 크기 조정
+- Contact Mask 세분화가 필요하면 `handle_thumb`, `handle_finger` 등으로 part를 나눠 정의
 
 ### Step 2: Affordance 할당
+1. **Target Part** → **Class** → **Tag** 선택
+2. **Assign Affordance** 클릭
 
-v0.1과 동일합니다.
-
-1. **Affordances** 폴더를 엽니다.
-2. **Target Part** → **Affordance Class** → **Semantic Tag** 선택
-3. **Assign Affordance** 클릭
-4. 복수 태그: 같은 part+class에 다른 tag로 다시 Assign하면 누적
-
-| Class | 의미 | 색상 |
-|-------|------|------|
-| graspable | 파지 가능 | 초록 |
-| pour_support | 따르기 지지 | 파랑 |
-| handover_region | 전달 영역 | 주황 |
-| placeable | 놓기 가능 | 보라 |
-| non_affordance | 비기능 | 회색 |
+| Class | 의미 |
+|-------|------|
+| graspable | 파지 가능 |
+| pour_support | 따르기 지지 |
+| handover_region | 전달 영역 |
+| placeable | 놓기 가능 |
+| non_affordance | 비기능 |
 
 | Tag | 의미 |
 |-----|------|
 | pick_up | 들어올리기 |
-| pour_ready | 따르기 준비 |
-| handover_ready | 전달 준비 |
-| reposition_only | 위치 재조정 |
+| pour_ready | 따르기 |
+| handover_ready | 전달 |
+| reposition_only | 재배치 |
 | place_down | 내려놓기 |
 | tilt | 기울이기 |
 
----
-
 ### Step 3: Contact Mask 지정
+1. **Mask Type** 선택
+2. **Patch A Part** + **A finger** 선택 (엄지 쪽)
+3. **Patch B Part** + **B finger** 선택 (나머지 손가락 쪽)
+4. **Assign Mask** 클릭
 
-**목적**: 로봇 손가락이 닿는 접촉 영역(Patch A, Patch B)을 지정합니다. **Part를 Patch에 할당**하는 방식입니다.
+접촉 영역을 세분화하려면 Step 1에서 part를 미리 나눠 정의하세요.
 
-**사전 준비**: Step 1에서 접촉 영역을 세분화된 part로 미리 정의해야 합니다.
-예: `handle_thumb`(엄지 쪽), `handle_finger`(나머지 손가락 쪽)
+### Step 4: Pose 배치
+1. Pose Name, Grasp Type, Hand, Link Affordance/Mask 설정
+2. **Place Pose** 클릭 → pose 배치 모드
+3. **객체 표면 클릭** → 클릭 위치에 RGB 좌표축 화살표 생성
+   - 빨강=X, 초록=Y, 파랑=Z
+   - 연속 클릭으로 여러 pose 배치 가능 (자동 번호 증가)
+4. **Stop** → pose 배치 모드 종료
 
-**조작 방법**:
+#### Pose 회전 편집
+1. **Select Pose** 드롭다운에서 편집할 pose 선택
+2. **Roll / Pitch / Yaw** 슬라이더 조절 (-180°~180°)
+3. 좌표축 화살표가 **실시간으로 회전** → 원하는 파지 방향 설정
 
-1. **Contact Masks** 폴더를 엽니다.
-2. **Mask Type** 을 선택합니다 (handle_pinch, body_power, rim_control, custom).
-3. **Patch A → Part** 드롭다운에서 Patch A로 사용할 part를 선택합니다.
-4. **Patch A (finger)** 에서 손가락 역할을 선택합니다 (예: thumb).
-5. **Patch B → Part** 드롭다운에서 Patch B로 사용할 part를 선택합니다.
-6. **Patch B (finger)** 에서 손가락 역할을 선택합니다 (예: palm).
-7. **Assign Contact Mask** 클릭
-8. 해당 part들이 빨강(Patch A)/파랑(Patch B) 색상으로 표시됩니다.
-
-**예시** (power drill):
-1. Parts에서 `handle_thumb` + `handle_palm` 두 part를 painting으로 정의
-2. Contact Masks에서 Patch A=`handle_thumb`(thumb), Patch B=`handle_palm`(palm) 할당
-
-| Mask Type | 의미 | 권장 Part |
-|-----------|------|----------|
-| handle_pinch | 손잡이 핀치 그립 | handle |
-| body_power | 몸체 파워 그립 | body |
-| rim_control | 림 컨트롤 그립 | rim |
-| custom | 사용자 정의 | 모든 part |
-
-| Finger Role | 의미 |
-|-------------|------|
-| thumb | 엄지 |
-| index | 검지 |
-| index_middle | 검지~중지 |
-| palm | 손바닥 |
-| all_fingers | 모든 손가락 |
-
----
-
-### Step 4: Candidate Pose 추가
-
-**목적**: 로봇 손의 6D 위치와 **방향(회전)**을 3D 기즈모로 직접 조작하여 지정합니다.
-
-1. **Candidate Poses** 폴더를 엽니다.
-2. **Pose Name**: 의미 있는 이름 입력 (예: `handle_top_pinch`)
-3. **Grasp Type** / **Hand Role** 선택
-4. **Link Affordance** / **Link Mask** 로 연결 관계 설정
-5. **Place Gizmo** 클릭 → 3D 뷰포트에 이동/회전 기즈모가 나타남
-6. **화살표를 드래그**하면 위치 이동 (X/Y/Z축)
-7. **링을 드래그**하면 회전 (X/Y/Z축)
-8. 원하는 위치와 방향에 놓은 후 **Confirm Pose** 클릭 → 고정 좌표축으로 확정
-9. 취소하려면 **Cancel** 클릭
-
-| Grasp Type | 의미 |
-|------------|------|
-| pinch | 핀치 그립 (엄지+검지) |
-| power | 파워 그립 (손 전체) |
-| lateral | 측면 그립 |
-| hook | 훅 그립 |
-| precision | 정밀 그립 |
-| custom | 사용자 정의 |
-
-| Hand Role | 의미 |
-|-----------|------|
-| right | 오른손 |
-| left | 왼손 |
-| either | 양손 가능 |
-
----
+#### Pose 삭제
+- **Remove Last** → 마지막 pose + 3D 마커 동시 삭제
 
 ### Step 5: 저장
+1. Object ID, Annotator, Review Status 확인
+2. **Save** 클릭 → JSON + .npy + manifest.json 자동 생성
+3. **Load** → Object ID 기준으로 기존 라벨 로드
 
-1. **Object Info** 에서 Object ID, Annotator, Review Status 확인
-2. **File → Save Label** 클릭
-3. 저장 결과 + 자동 validation 결과가 표시됩니다
+---
 
-**저장 구조** (v2.0):
+## 4. 지원 객체
+
+| 객체 | 실행 예시 |
+|------|---------|
+| YCB Mug | `--mesh assets/ycb/025_mug/google_512k/nontextured.ply` |
+| YCB Mustard Bottle | `--mesh assets/ycb/006_mustard_bottle/google_512k/nontextured.ply` |
+| YCB Power Drill | `--mesh assets/ycb/035_power_drill/google_512k/nontextured.ply` |
+| YCB Banana | `--mesh assets/ycb/011_banana/google_512k/nontextured.ply` |
+| 임의 mesh | `--mesh /path/to/object.ply` |
+
+---
+
+## 5. 색상 범례
+
+| 색상 | 의미 |
+|------|------|
+| 회색 | 미할당 vertex |
+| 빨강/초록/파랑/노랑/마젠타/시안/주황/보라 | Part별 자동 할당 색상 (8색 팔레트) |
+| 빨강 (Patch) | Contact Mask Patch A (엄지 쪽) |
+| 파랑 (Patch) | Contact Mask Patch B (손가락 쪽) |
+| RGB 화살표 | Pose 좌표축 (빨=X, 초=Y, 파=Z) |
+
+---
+
+## 6. 저장 구조
+
 ```
 labels/
-├── ycb_025_mug.json              # 메타데이터 (< 10KB)
-└── ycb_025_mug_vertices/         # vertex_indices 바이너리
+├── ycb_025_mug.json              ← 메타데이터 (< 10KB)
+└── ycb_025_mug_vertices/
+    ├── manifest.json              ← 파일 목록 + checksum
     ├── part_body.npy
     ├── part_handle.npy
-    ├── aff_handle_graspable.npy
-    └── mask_handle_pinch_patch_a.npy
-```
-
-JSON은 가볍게 유지되고, 대용량 vertex 데이터는 `.npy` 바이너리로 분리됩니다.
-
----
-
-## 4. 기존 라벨 로드 및 검수
-
-### 4.1 서버 시작 시 라벨 로드
-
-```bash
-python app/main.py \
-  --mesh assets/ycb/025_mug/google_512k/nontextured.ply \
-  --label labels/sample_handle_grasp.json
-```
-
-### 4.2 실행 중 라벨 로드
-
-1. **Object Info → Object ID** 에 object_id 입력
-2. **File → Load Label** 클릭
-
-### 4.3 검수 (Review)
-
-1. 라벨 로드 → 3D 뷰포트에서 시각적 확인
-2. **File → Validate** 로 무결성 검사
-3. **Review Status** → `reviewed` 또는 `approved` 변경
-4. **Save Label**
-
-### 4.4 제공된 샘플 라벨
-
-| 파일명 | 내용 |
-|--------|------|
-| `sample_handle_grasp.json` | handle → graspable [pick_up] + handle_pinch mask + pinch pose |
-| `sample_rim_pour.json` | rim → pour_support [pour_ready] + rim_control mask + power pose |
-| `sample_body_handover.json` | body → handover_region [handover_ready] + body_power mask + power pose |
-
----
-
-## 5. 지원 객체
-
-### 기본 제공 (download_ycb.py)
-
-| 객체 | ID | Part 분류 방법 |
-|------|-----|---------------|
-| YCB Mug | `ycb_025_mug` | Auto Segment (mug) 또는 수동 |
-| YCB Mustard Bottle | `ycb_006_mustard_bottle` | 수동 Part 정의 |
-| YCB Power Drill | `ycb_035_power_drill` | 수동 Part 정의 |
-| YCB Banana | `ycb_011_banana` | 수동 Part 정의 |
-
-### 사용자 객체
-
-`.ply`, `.obj`, `.stl`, `.off`, `.glb`, `.gltf` 포맷의 mesh 파일을 `--mesh` 인자로 지정하면 됩니다:
-
-```bash
-python app/main.py --mesh /path/to/your/object.ply --object-id my_custom_object
-```
-
-수동 Part 정의 (Add Empty Part → Start Painting)로 part를 지정하세요.
-
----
-
-## 6. 용어 사전
-
-| 용어 | 영문 | 설명 |
-|------|------|------|
-| 어포던스 | Affordance | 객체의 특정 부위가 제공하는 조작 가능성 |
-| 파트 | Part | 객체를 구성하는 의미 단위 (body, handle, rim, base 등) |
-| 접촉 마스크 | Contact Mask | 로봇 손가락이 닿는 표면 영역. Patch A/B로 구분 |
-| 후보 포즈 | Candidate Pose | 파지 시 로봇 손의 6D 위치(position)와 방향(rotation) |
-| 시맨틱 태그 | Semantic Tag | 어포던스의 구체적 동작 의미 (pick_up, pour_ready 등) |
-| 파지 유형 | Grasp Type | 잡는 방식 (pinch, power, lateral 등) |
-| 정규 좌표계 | Canonical Frame | 객체 고유의 기준 좌표계 |
-| 정점 | Vertex | 3D 메시를 구성하는 점 |
-| 검수 상태 | Review Status | 라벨 완성도: draft → in_review → reviewed → approved |
-| 브러시 | Brush | click-to-paint 시 클릭 위치 주변 반지름 내 vertex 선택 영역 |
-
----
-
-## 7. 색상 범례
-
-### Part 색상
-
-| 색상 | Part | RGB |
-|------|------|-----|
-| 보라 | body | (150, 150, 200) |
-| 초록 | handle | (50, 200, 50) |
-| 노랑 | rim | (200, 200, 50) |
-| 주황 | interior | (200, 100, 50) |
-| 회색 | base | (100, 100, 100) |
-
-### Affordance 색상
-
-| 색상 | Class | RGB |
-|------|-------|-----|
-| 초록 | graspable | (0, 255, 0) |
-| 파랑 | pour_support | (0, 100, 255) |
-| 주황 | handover_region | (255, 165, 0) |
-| 보라 | placeable | (128, 0, 128) |
-| 회색 | non_affordance | (128, 128, 128) |
-
-### Contact Mask 색상
-
-| 색상 | 영역 | RGB |
-|------|------|-----|
-| 빨강 | Patch A (보통 엄지 쪽) | (255, 80, 80) |
-| 파랑 | Patch B (보통 나머지 손가락 쪽) | (80, 80, 255) |
-
-### Candidate Pose 좌표축
-
-- **빨강 축**: X 방향
-- **초록 축**: Y 방향
-- **파랑 축**: Z 방향
-- 회전이 적용되면 축 방향이 변경됩니다.
-
----
-
-## 8. FAQ / 문제 해결
-
-### Q: mug이 아닌 객체에서 Auto Segment를 누르면?
-**A**: Auto Segment (mug)는 머그컵 전용입니다. 다른 객체에서는 **수동 Part 정의** (Add Empty Part → Start Painting)를 사용하세요.
-
-### Q: Painting 중 회전/줌이 안 됩니다.
-**A**: Painting 모드에서는 클릭이 vertex 선택으로 사용됩니다. **Stop Painting** 또는 **Stop Editing** 으로 편집 모드를 종료한 후 조작하세요.
-
-### Q: Contact Mask의 접촉 영역을 세밀하게 나누고 싶습니다.
-**A**: Parts에서 part를 세분화하세요. 예: `handle` 하나 대신 `handle_thumb` + `handle_finger` 두 part를 painting으로 정의한 후, Contact Masks에서 각각 Patch A/B에 할당합니다.
-
-### Q: Pose 기즈모가 객체와 너무 멀리 떨어져 배치됩니다.
-**A**: Place Gizmo 시 객체 중심에 배치됩니다. 화살표를 드래그하여 원하는 위치로 이동하세요.
-
-### Q: 저장된 파일 구조가 이전과 다릅니다.
-**A**: v2.0에서 vertex_indices가 `.npy` 바이너리로 분리되었습니다. JSON에는 `vertex_indices_file` 참조만 남습니다. Load 시 자동으로 복원됩니다. v0.1 JSON도 하위 호환으로 로드 가능합니다.
-
-### Q: Auto Segment 버튼을 눌러도 아무 변화가 없습니다.
-**A**: 메시가 로드되지 않았을 수 있습니다. `--mesh` 옵션을 확인하세요.
-
-### Q: 서버가 종료되지 않습니다.
-**A**: **File → Quit Server** 버튼 또는 `kill $(lsof -ti:8080)` 을 사용하세요.
-
-### Q: 포트 8080이 이미 사용 중입니다.
-**A**: `--port 9090` 옵션으로 다른 포트를 지정하세요.
-
----
-
-## 9. 현재 버전의 제한 사항
-
-| 항목 | v0.1 (Phase 1) | v2.0 (Phase 2) | 다음 버전 (Phase 3) |
-|------|---------------|----------------|-------------------|
-| 대상 객체 | mug만 | **mug + 3개 + 임의 mesh** | 동일 |
-| Part 분류 | mug 전용 auto segment만 | **수동 click-to-paint 추가** | SAM 연동 PoC |
-| Contact Patch | 절반 자동 분할 | **click-to-paint 수동 편집** | 동일 |
-| Pose 회전 | identity 고정 | **기즈모 드래그 (TransformControls)** | 동일 |
-| JSON 크기 | 4~9MB | **2~10KB (.npy 분리)** | 동일 |
-| 코드 구조 | 전역 변수 + 단일 함수 | **AppState + 모듈 분리** | 동일 |
-| Confidence | 없음 | 없음 | 자동 산출 |
-| Physics 검증 | 없음 | 없음 | Isaac Sim lift test |
-| Export | JSON v0.1만 | JSON v0.1만 | RLDS / LeRobot |
-
----
-
-## 빠른 참조: 전체 라벨링 체크리스트
-
-```
-□ 서버 실행 (python app/main.py --mesh ... --object-id ...)
-□ 브라우저 접속 (http://localhost:8080)
-□ Parts:
-  - mug → Auto Segment (mug) 클릭
-  - 기타 → Part Name 입력 → Add Empty Part → Start Painting → 클릭 → Stop Painting
-  - (접촉 영역 세분화 시 handle_thumb, handle_finger 등으로 part 분리)
-□ Affordances → Target Part → Class + Tag → Assign
-□ Contact Masks → Mask Type → Patch A/B에 part 할당 → Assign
-□ Candidate Poses → 이름 + Grasp Type → Link → Place Gizmo → 드래그 조작 → Confirm
-□ Object Info → Annotator, Review Status 확인
-□ File → Save Label
-□ File → Quit Server
+    └── ...
 ```
 
 ---
 
-*이 가이드는 Affordance Labeller v2.1 (Phase 2 완료, 2026-03-27) 기준으로 작성되었습니다.*
-*Phase 3 업데이트 시 본 문서도 함께 갱신됩니다.*
+## 7. FAQ
+
+**Q: painting 중 orbit이 안 됩니다.**
+A: **Ctrl 키를 누른 상태에서** 드래그하세요.
+
+**Q: 칠한 영역을 지우고 싶습니다.**
+A: Paint 모드에서 **오른쪽 클릭/드래그**하면 지워집니다.
+
+**Q: Pose 좌표축을 회전하고 싶습니다.**
+A: Stop으로 배치 종료 → **Select Pose** 에서 선택 → Roll/Pitch/Yaw 슬라이더 조절.
+
+**Q: 서버 종료는?**
+A: 터미널에서 `Ctrl+C` 또는 `kill $(lsof -ti:8080)`.
+
+---
+
+## 빠른 참조
+
+```
+□ python app/main.py --mesh ... --server
+□ http://localhost:8080 접속
+□ Parts: Add → Paint → 좌클릭=칠하기, 우클릭=지우기, Ctrl+드래그=orbit → Stop
+□ Affordances: Target Part → Class + Tag → Assign
+□ Contact Masks: Patch A/B Part 선택 → Assign
+□ Poses: Place Pose → 표면 클릭 → Stop → Select → Roll/Pitch/Yaw 편집
+□ Save
+```
+
+---
+
+*Affordance Labeller v3.0 (Phase 3, PyVista+Trame, 2026-03-27)*
