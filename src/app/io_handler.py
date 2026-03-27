@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+import numpy as np
 import jsonschema
 
 # JSON 스키마 위치
@@ -60,8 +61,50 @@ def create_empty_label(
     }
 
 
+def _extract_vertices_to_npy(label_data: dict, npy_dir: Path) -> dict:
+    """vertex_indices 배열을 .npy 파일로 분리하고 참조로 치환한 사본을 반환"""
+    import copy
+    data = copy.deepcopy(label_data)
+    npy_dir.mkdir(parents=True, exist_ok=True)
+
+    def _save_array(key_prefix: str, indices: list) -> str:
+        """배열을 .npy로 저장하고 상대 경로 반환"""
+        filename = f"{key_prefix}.npy"
+        np.save(str(npy_dir / filename), np.array(indices, dtype=np.int32))
+        return f"{npy_dir.name}/{filename}"
+
+    # parts
+    for part in data.get("parts", []):
+        vi = part.get("vertex_indices", [])
+        if vi:
+            part["vertex_indices_file"] = _save_array(part["part_id"], vi)
+            part["vertex_indices"] = []
+
+    # affordances
+    for aff in data.get("affordances", []):
+        vi = aff.get("vertex_indices", [])
+        if vi:
+            aff["vertex_indices_file"] = _save_array(aff["affordance_id"], vi)
+            aff["vertex_indices"] = []
+
+    # contact_region_masks
+    for mask in data.get("contact_region_masks", []):
+        for patch_key in ("patch_a", "patch_b"):
+            patch = mask.get(patch_key, {})
+            vi = patch.get("vertex_indices", [])
+            if vi:
+                patch["vertex_indices_file"] = _save_array(
+                    f"{mask['mask_id']}_{patch_key}", vi
+                )
+                patch["vertex_indices"] = []
+
+    return data
+
+
 def save_label(label_data: dict, filepath: Optional[str] = None) -> str:
-    """라벨 데이터를 JSON 파일로 저장
+    """라벨 데이터를 JSON + .npy 파일로 저장
+
+    vertex_indices는 .npy 바이너리로 분리하여 JSON 크기를 줄인다.
 
     Args:
         label_data: 라벨 딕셔너리
@@ -82,16 +125,51 @@ def save_label(label_data: dict, filepath: Optional[str] = None) -> str:
     # 디렉토리 확인
     os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
 
-    # 저장
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(label_data, f, indent=2, ensure_ascii=False)
+    # vertex_indices를 .npy로 분리
+    json_path = Path(filepath)
+    npy_dir = json_path.parent / f"{json_path.stem}_vertices"
+    save_data = _extract_vertices_to_npy(label_data, npy_dir)
 
-    print(f"[save] 저장 완료: {filepath}")
+    # JSON 저장 (vertex_indices가 빈 배열 + _file 참조)
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(save_data, f, indent=2, ensure_ascii=False)
+
+    print(f"[save] 저장 완료: {filepath} + {npy_dir.name}/")
     return filepath
 
 
+def _restore_vertices_from_npy(data: dict, base_dir: Path) -> dict:
+    """vertex_indices_file 참조를 .npy에서 읽어 vertex_indices로 복원"""
+
+    def _load_array(ref_path: str) -> list:
+        full_path = base_dir / ref_path
+        if full_path.exists():
+            return np.load(str(full_path)).tolist()
+        print(f"[load] .npy 파일 없음: {full_path}")
+        return []
+
+    for part in data.get("parts", []):
+        if "vertex_indices_file" in part:
+            part["vertex_indices"] = _load_array(part.pop("vertex_indices_file"))
+
+    for aff in data.get("affordances", []):
+        if "vertex_indices_file" in aff:
+            aff["vertex_indices"] = _load_array(aff.pop("vertex_indices_file"))
+
+    for mask in data.get("contact_region_masks", []):
+        for patch_key in ("patch_a", "patch_b"):
+            patch = mask.get(patch_key, {})
+            if "vertex_indices_file" in patch:
+                patch["vertex_indices"] = _load_array(patch.pop("vertex_indices_file"))
+
+    return data
+
+
 def load_label(filepath: str) -> dict:
-    """JSON 파일에서 라벨 데이터 로드
+    """JSON + .npy 파일에서 라벨 데이터 로드
+
+    vertex_indices_file 참조가 있으면 .npy에서 복원한다.
+    참조가 없으면 기존 인라인 방식으로 동작한다 (하위 호환).
 
     Args:
         filepath: JSON 파일 경로
@@ -108,6 +186,10 @@ def load_label(filepath: str) -> dict:
 
     with open(filepath, "r", encoding="utf-8") as f:
         data = json.load(f)
+
+    # .npy 참조 복원
+    base_dir = Path(filepath).parent
+    data = _restore_vertices_from_npy(data, base_dir)
 
     print(f"[load] 로드 완료: {filepath}")
     return data
