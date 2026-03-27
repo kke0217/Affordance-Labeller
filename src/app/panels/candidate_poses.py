@@ -1,7 +1,23 @@
-"""Candidate Poses 패널 — pose 추가/삭제 + 연결"""
+"""Candidate Poses 패널 — pose 추가/삭제 + 연결 + rotation 편집"""
+
+import numpy as np
+from scipy.spatial.transform import Rotation
 
 from state import AppState
 from helpers import format_poses
+
+
+def _euler_to_xyzw(roll_deg, pitch_deg, yaw_deg):
+    """Euler 각도(deg) → quaternion [x, y, z, w]"""
+    r = Rotation.from_euler("xyz", [roll_deg, pitch_deg, yaw_deg], degrees=True)
+    xyzw = r.as_quat()  # scipy: [x, y, z, w]
+    return xyzw.tolist()
+
+
+def _xyzw_to_euler(xyzw):
+    """quaternion [x, y, z, w] → Euler 각도(deg)"""
+    r = Rotation.from_quat(xyzw)
+    return r.as_euler("xyz", degrees=True).tolist()
 
 
 def setup(state: AppState):
@@ -11,6 +27,9 @@ def setup(state: AppState):
         gui_name = server.gui.add_text("Pose Name", initial_value="grasp_01")
         gui_pos = server.gui.add_vector3(
             "Position", initial_value=(0.0, 0.05, 0.04), step=0.005,
+        )
+        gui_rot = server.gui.add_vector3(
+            "Rotation (deg)", initial_value=(0.0, 0.0, 0.0), step=5.0,
         )
         gui_grasp = server.gui.add_dropdown(
             "Grasp Type",
@@ -55,9 +74,12 @@ def setup(state: AppState):
                 state.set_status("**Error**: pose 이름을 입력하세요")
                 return
             pos = list(gui_pos.value)
+            rot_deg = list(gui_rot.value)
+            rotation_xyzw = _euler_to_xyzw(*rot_deg)
+
             pose_data = {
                 "pose_id": f"pose_{name}", "name": name,
-                "translation": pos, "rotation_xyzw": [0.0, 0.0, 0.0, 1.0],
+                "translation": pos, "rotation_xyzw": rotation_xyzw,
                 "linked_affordance_id": gui_aff_link.value if gui_aff_link.value != "(none)" else "",
                 "linked_mask_id": gui_mask_link.value if gui_mask_link.value != "(none)" else "",
                 "semantic_tags": [], "grasp_type": gui_grasp.value,
@@ -67,7 +89,10 @@ def setup(state: AppState):
             state.label["candidate_poses"].append(pose_data)
             state.viewer.display_pose(pose_data)
             state.gui_pose_info.content = format_poses(state.label["candidate_poses"])
-            state.set_status(f"**Pose**: {name} @ [{pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f}]")
+            state.set_status(
+                f"**Pose**: {name} @ [{pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f}] "
+                f"rot [{rot_deg[0]:.0f}, {rot_deg[1]:.0f}, {rot_deg[2]:.0f}]°"
+            )
 
         @remove_btn.on_click
         def on_remove(_):

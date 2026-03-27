@@ -52,9 +52,12 @@ def format_poses(poses: list) -> str:
     lines = []
     for p in poses:
         pos = p.get("translation", [0, 0, 0])
+        rot = p.get("rotation_xyzw", [0, 0, 0, 1])
+        is_identity = rot == [0.0, 0.0, 0.0, 1.0]
+        rot_str = "" if is_identity else f" rot[{rot[0]:.2f},{rot[1]:.2f},{rot[2]:.2f},{rot[3]:.2f}]"
         lines.append(
             f"- **{p['name']}** ({p.get('grasp_type', '?')}) "
-            f"@ [{pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f}]"
+            f"@ [{pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f}]{rot_str}"
         )
     return "\n".join(lines)
 
