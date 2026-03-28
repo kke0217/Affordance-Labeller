@@ -515,6 +515,55 @@ def validate_label(label_data: dict) -> list[dict]:
             "message": "annotator가 설정되지 않았습니다.",
         })
 
+    # === 4단계: 확장 규칙 (Phase 3) ===
+
+    # semantic tag + grasp_type 비상식 조합 경고
+    SUSPICIOUS_COMBOS = {
+        ("pour_ready", "pinch"): "따르기 동작에 핀치 그립은 부자연스럽습니다",
+        ("pick_up", "hook"): "들어올리기에 훅 그립은 부자연스럽습니다",
+    }
+    for pose in label_data.get("candidate_poses", []):
+        grasp = pose.get("grasp_type", "")
+        for aff in label_data.get("affordances", []):
+            if aff.get("affordance_id") == pose.get("linked_affordance_id"):
+                for tag in aff.get("semantic_tags", []):
+                    key = (tag, grasp)
+                    if key in SUSPICIOUS_COMBOS:
+                        issues.append({
+                            "level": "info",
+                            "field": "candidate_poses",
+                            "message": f"pose '{pose.get('pose_id')}': {SUSPICIOUS_COMBOS[key]}",
+                        })
+
+    # part coverage 비율 경고
+    total_vertices = sum(len(p.get("vertex_indices", [])) for p in label_data.get("parts", []))
+    if label_data.get("parts") and total_vertices == 0:
+        issues.append({
+            "level": "warning",
+            "field": "parts",
+            "message": "모든 part의 vertex_indices가 비어있습니다. painting을 수행하세요.",
+        })
+
+    # mask patch A/B 비어있음 경고
+    for mask in label_data.get("contact_region_masks", []):
+        a_count = len(mask.get("patch_a", {}).get("vertex_indices", []))
+        b_count = len(mask.get("patch_b", {}).get("vertex_indices", []))
+        if a_count == 0 and b_count == 0:
+            issues.append({
+                "level": "warning",
+                "field": "contact_region_masks",
+                "message": f"mask '{mask.get('mask_id')}': patch A/B 모두 비어있습니다.",
+            })
+
+    # canonical frame origin 기본값 경고
+    cf = label_data.get("canonical_frame", {})
+    if cf.get("origin") == [0.0, 0.0, 0.0]:
+        issues.append({
+            "level": "info",
+            "field": "canonical_frame",
+            "message": "canonical_frame origin이 기본값 [0,0,0]입니다. 필요 시 조정하세요.",
+        })
+
     return issues
 
 

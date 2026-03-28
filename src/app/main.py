@@ -21,7 +21,7 @@ from io_handler import (
     create_empty_label, save_label, load_label,
     validate_label, print_validation_report, LABELS_DIR,
 )
-from viewer import auto_segment_mug, get_part_color
+from viewer import auto_segment_mug, auto_segment_generic, get_part_color
 from viewer_trame import TrameMeshViewer
 from interactor import PaintInteractorStyle
 
@@ -58,6 +58,7 @@ class AffordanceApp:
         self.state.pose_place_mode = False
         self.state.current_part = "body"
         self.state.brush_radius = 0.01
+        self.state.n_clusters = 4
         self.state.object_id = self.label.get("object_id", object_id)
         self.state.annotator = self.label.get("annotator", "고광은")
         self.state.review_status = self.label.get("review_status", "draft")
@@ -282,6 +283,20 @@ class AffordanceApp:
         if self.viewer.tri_mesh is None:
             return
         parts = auto_segment_mug(self.viewer.tri_mesh)
+        self._apply_segment_result(parts)
+        self.state.status_msg = "Auto Segment 완료 (mug 전용)"
+
+    def auto_segment_generic_action(self):
+        """범용 기하학 기반 자동 분할 (K-means + 법선)"""
+        if self.viewer.tri_mesh is None:
+            return
+        n_clusters = int(self.state.n_clusters)
+        parts = auto_segment_generic(self.viewer.tri_mesh, n_clusters=n_clusters)
+        self._apply_segment_result(parts)
+        self.state.status_msg = f"Auto Segment 완료 (generic, {n_clusters} clusters)"
+
+    def _apply_segment_result(self, parts: dict):
+        """분할 결과를 label에 적용 + 시각화"""
         self.label["parts"] = []
         for name, indices in parts.items():
             color = get_part_color(name)
@@ -289,12 +304,12 @@ class AffordanceApp:
                 "part_id": f"part_{name}", "name": name,
                 "vertex_indices": indices.tolist(), "face_indices": [],
                 "visible": True, "color": [c / 255.0 for c in color], "comment": "",
+                "source_type": "auto",
             })
         self.viewer.update_colors(self.label)
         self.ctrl.view_update()
         self.state.parts_text = self._fmt_parts()
         self._refresh_dropdowns()
-        self.state.status_msg = "Auto Segment 완료 (mug)"
 
     def assign_affordance(self):
         part_name = self.state.aff_part
@@ -323,6 +338,51 @@ class AffordanceApp:
         self.state.aff_text = self._fmt_affs()
         self._refresh_dropdowns()
         self.state.status_msg = f"Affordance: {aff_class} → {part_name} [{tag}]"
+
+    def auto_split_patch(self):
+        """선택한 part를 법선 방향 기반으로 Patch A/B 자동 분할"""
+        target = self.state.mask_auto_split_part
+        if target == "(none)":
+            self.state.status_msg = "Auto Split: part를 선택하세요"
+            return
+        part = next((p for p in self.label["parts"] if p["name"] == target), None)
+        if not part or not part.get("vertex_indices"):
+            self.state.status_msg = f"Auto Split: '{target}' vertex 없음"
+            return
+
+        mesh = self.viewer.tri_mesh
+        indices = np.array(part["vertex_indices"])
+        verts = mesh.vertices[indices]
+
+        # 법선 방향 기반 분할: PCA 첫 번째 주성분으로 양분
+        centered = verts - verts.mean(axis=0)
+        _, _, Vt = np.linalg.svd(centered, full_matrices=False)
+        principal = Vt[0]  # 가장 큰 분산 방향
+        projections = centered @ principal
+        median_proj = np.median(projections)
+
+        a_mask = projections <= median_proj
+        b_mask = projections > median_proj
+
+        a_indices = indices[a_mask].tolist()
+        b_indices = indices[b_mask].tolist()
+
+        mask_type = self.state.mask_type
+        mask_id = f"mask_{mask_type}_{target}_auto"
+
+        self.label["contact_region_masks"].append({
+            "mask_id": mask_id, "mask_type": mask_type,
+            "part_ref": part["part_id"],
+            "patch_a": {"vertex_indices": a_indices, "face_indices": [], "finger_role": self.state.patch_a_role},
+            "patch_b": {"vertex_indices": b_indices, "face_indices": [], "finger_role": self.state.patch_b_role},
+            "comment": "auto_split (PCA)",
+            "source_type": "auto",
+        })
+        self.viewer.update_colors(self.label)
+        self.ctrl.view_update()
+        self.state.mask_text = self._fmt_masks()
+        self._refresh_dropdowns()
+        self.state.status_msg = f"Auto Split: {target} → A({len(a_indices)}v) / B({len(b_indices)}v)"
 
     def assign_mask(self):
         a_part = self.state.mask_patch_a_part
@@ -410,7 +470,10 @@ class AffordanceApp:
     def _fmt_parts(self):
         if not self.label.get("parts"):
             return "No parts"
-        return " | ".join(f"{p['name']}({len(p.get('vertex_indices',[]))}v)" for p in self.label["parts"])
+        def _p(p):
+            src = "🤖" if p.get("source_type") == "auto" else "✋"
+            return f"{src}{p['name']}({len(p.get('vertex_indices',[]))}v)"
+        return " | ".join(_p(p) for p in self.label["parts"])
 
     def _fmt_affs(self):
         if not self.label.get("affordances"):
@@ -420,7 +483,10 @@ class AffordanceApp:
     def _fmt_masks(self):
         if not self.label.get("contact_region_masks"):
             return "No masks"
-        return " | ".join(f"{m['mask_type']}" for m in self.label["contact_region_masks"])
+        def _m(m):
+            src = "🤖" if m.get("source_type") == "auto" else ""
+            return f"{src}{m['mask_type']}"
+        return " | ".join(_m(m) for m in self.label["contact_region_masks"])
 
     def _fmt_poses(self):
         if not self.label.get("candidate_poses"):
@@ -436,6 +502,7 @@ class AffordanceApp:
         self.state.mask_type = "handle_pinch"
         self.state.mask_patch_a_part = "(none)"
         self.state.mask_patch_b_part = "(none)"
+        self.state.mask_auto_split_part = "(none)"
         self.state.patch_a_role = "thumb"
         self.state.patch_b_role = "index_middle"
         self.state.pose_name = "grasp_01"
@@ -471,6 +538,8 @@ class AffordanceApp:
                         # --- Parts ---
                         vuetify3.VCardTitle("Parts", class_="text-subtitle-2 pa-1")
                         vuetify3.VBtn("Auto Segment (mug)", click=self.auto_segment, color="purple", size="small", block=True, class_="mx-2")
+                        vuetify3.VSlider(v_model=("n_clusters", 4), label="Clusters", min=2, max=8, step=1, hide_details=True, class_="mx-2")
+                        vuetify3.VBtn("Auto Segment (generic)", click=self.auto_segment_generic_action, color="teal", size="small", block=True, class_="mx-2")
                         vuetify3.VTextField(v_model=("current_part",), label="Part Name", density="compact", class_="mx-2 mt-1", hide_details=True)
                         vuetify3.VSlider(v_model=("brush_radius",), label="Brush", min=0.002, max=0.05, step=0.001, hide_details=True, class_="mx-2")
                         with vuetify3.VRow(class_="mx-1", no_gutters=True):
@@ -503,6 +572,9 @@ class AffordanceApp:
                         vuetify3.VSelect(v_model=("mask_patch_b_part",), label="Patch B Part", items=("part_options",), density="compact", class_="mx-2 mt-1", hide_details=True)
                         vuetify3.VSelect(v_model=("patch_b_role",), label="B finger", items=("['thumb','index','index_middle','palm','all_fingers']",), density="compact", class_="mx-2 mt-1", hide_details=True)
                         vuetify3.VBtn("Assign Mask", click=self.assign_mask, size="small", block=True, class_="mx-2 mt-1")
+                        vuetify3.VCardSubtitle("Auto Split (PCA)", class_="pa-1 mt-1")
+                        vuetify3.VSelect(v_model=("mask_auto_split_part",), label="Split Part", items=("part_options",), density="compact", class_="mx-2", hide_details=True)
+                        vuetify3.VBtn("Auto Split → A/B", click=self.auto_split_patch, color="teal", size="small", block=True, class_="mx-2 mt-1")
                         vuetify3.VCardText("{{ mask_text }}", class_="text-caption pa-1")
 
                         vuetify3.VDivider(class_="my-2")

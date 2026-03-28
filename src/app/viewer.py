@@ -58,6 +58,46 @@ def get_part_color(name: str) -> tuple:
         _custom_color_index[name] = len(_custom_color_index) % len(CUSTOM_PART_COLORS)
     return CUSTOM_PART_COLORS[_custom_color_index[name]]
 
+def auto_segment_generic(mesh: trimesh.Trimesh, n_clusters: int = 4) -> dict[str, np.ndarray]:
+    """범용 기하학 기반 자동 part 분류 (K-means + 법선 방향)
+
+    vertex 위치와 법선 벡터를 결합하여 K-means 클러스터링을 수행한다.
+    mug 이외 임의 객체에 사용 가능.
+
+    Args:
+        mesh: trimesh 메시
+        n_clusters: 분할할 part 수 (기본 4)
+
+    Returns:
+        part_name → vertex_indices 배열 딕셔너리
+    """
+    from sklearn.cluster import KMeans
+
+    verts = mesh.vertices
+    # 법선 벡터 계산
+    if mesh.vertex_normals is not None and len(mesh.vertex_normals) == len(verts):
+        normals = mesh.vertex_normals
+    else:
+        normals = np.zeros_like(verts)
+
+    # vertex 위치 + 법선을 결합한 feature (위치 0.7 + 법선 0.3 가중)
+    pos_norm = (verts - verts.mean(axis=0)) / (verts.std() + 1e-8)
+    norm_norm = normals / (np.linalg.norm(normals, axis=1, keepdims=True) + 1e-8)
+    features = np.hstack([pos_norm * 0.7, norm_norm * 0.3])
+
+    kmeans = KMeans(n_clusters=n_clusters, n_init=10, random_state=42)
+    labels = kmeans.fit_predict(features)
+
+    part_names = [f"region_{i}" for i in range(n_clusters)]
+    parts = {}
+    for i, name in enumerate(part_names):
+        indices = np.where(labels == i)[0]
+        parts[name] = indices
+        print(f"  [auto] {name}: {len(indices)} vertices")
+
+    return parts
+
+
 # Affordance별 색상
 AFFORDANCE_COLORS = {
     "graspable":       (0, 255, 0, 180),
