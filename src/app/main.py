@@ -67,7 +67,9 @@ class AffordanceApp:
         self.state.status_msg = "Ctrl+드래그=orbit | Start Painting 후 클릭/드래그=칠하기"
         self._refresh_parts_ui()
         self.state.aff_text = self._fmt_affs()
+        self._update_legend()
         self.state.mask_text = self._fmt_masks()
+        self._update_legend()
         self.state.pose_text = self._fmt_poses()
 
         # Interactor style
@@ -316,6 +318,7 @@ class AffordanceApp:
                 mask["part_ref"] = part["part_id"]
         self.viewer.update_colors(self.label)
         self.ctrl.view_update()
+        self.state.current_part = new_name
         self._refresh_parts_ui()
         self._refresh_dropdowns()
         self.state.status_msg = f"Renamed: {old_name} → {new_name}"
@@ -342,27 +345,60 @@ class AffordanceApp:
         self._update_legend()
 
     def _update_legend(self):
-        """3D 뷰포트에 part 색상 범례 표시"""
-        if not self.label.get("parts"):
+        """3D 뷰포트에 part + affordance + mask 색상 범례 표시"""
+        labels = []
+
+        # affordance가 할당된 part_ref → affordance label 매핑
+        aff_by_part = {}
+        for aff in self.label.get("affordances", []):
+            aff_by_part[aff.get("part_ref", "")] = aff
+
+        # mask patch 정보
+        mask_parts = set()
+        for mask in self.label.get("contact_region_masks", []):
+            for pk in ("patch_a", "patch_b"):
+                if mask.get(pk, {}).get("vertex_indices"):
+                    mask_parts.add(mask.get("part_ref", ""))
+
+        for p in self.label.get("parts", []):
+            n = len(p.get("vertex_indices", []))
+            part_id = p["part_id"]
+
+            # affordance가 있으면 affordance 색상 + 라벨
+            if part_id in aff_by_part:
+                aff = aff_by_part[part_id]
+                from viewer import AFFORDANCE_COLORS
+                ac = AFFORDANCE_COLORS.get(aff["label"], (128, 128, 128, 100))
+                color = [ac[0] / 255.0, ac[1] / 255.0, ac[2] / 255.0]
+                tags = ",".join(aff.get("semantic_tags", []))
+                labels.append([f"{p['name']} → {aff['label']} [{tags}] ({n}v)", color])
+            else:
+                c = get_part_color(p["name"])
+                color = [c[0] / 255.0, c[1] / 255.0, c[2] / 255.0] if max(c[:3]) > 1 else list(c[:3])
+                labels.append([f"{p['name']} ({n}v)", color])
+
+        # mask patch 범례
+        for mask in self.label.get("contact_region_masks", []):
+            a_n = len(mask.get("patch_a", {}).get("vertex_indices", []))
+            b_n = len(mask.get("patch_b", {}).get("vertex_indices", []))
+            if a_n or b_n:
+                labels.append([f"Patch A: {mask.get('patch_a',{}).get('finger_role','?')} ({a_n}v)", [1.0, 0.31, 0.31]])
+                labels.append([f"Patch B: {mask.get('patch_b',{}).get('finger_role','?')} ({b_n}v)", [0.31, 0.31, 1.0]])
+
+        if not labels:
             try:
                 self.plotter.remove_legend()
             except Exception:
                 pass
             return
-        labels = []
-        for p in self.label["parts"]:
-            c = get_part_color(p["name"])
-            color = [c[0] / 255.0, c[1] / 255.0, c[2] / 255.0] if max(c[:3]) > 1 else list(c[:3])
-            n = len(p.get("vertex_indices", []))
-            labels.append([f"{p['name']} ({n}v)", color])
-        if labels:
-            self.plotter.add_legend(
-                labels=labels,
-                bcolor=(1, 1, 1),
-                border=True,
-                size=(0.2, 0.25),
-                loc="upper left",
-            )
+
+        self.plotter.add_legend(
+            labels=labels,
+            bcolor=(1, 1, 1),
+            border=True,
+            size=(0.25, 0.3),
+            loc="upper left",
+        )
 
     def _apply_segment_result(self, parts: dict):
         """분할 결과를 label에 적용 + 시각화"""
@@ -404,9 +440,10 @@ class AffordanceApp:
                 "source_type": "manual", "confidence": 1.0, "comment": "",
             })
         self.viewer.update_colors(self.label)
-        self.ctrl.view_update()
         self.state.aff_text = self._fmt_affs()
+        self._update_legend()
         self._refresh_dropdowns()
+        self.ctrl.view_update()
         self.state.status_msg = f"Affordance: {aff_class} → {part_name} [{tag}]"
 
     def auto_split_patch(self):
@@ -449,9 +486,10 @@ class AffordanceApp:
             "source_type": "auto",
         })
         self.viewer.update_colors(self.label)
-        self.ctrl.view_update()
         self.state.mask_text = self._fmt_masks()
+        self._update_legend()
         self._refresh_dropdowns()
+        self.ctrl.view_update()
         self.state.status_msg = f"Auto Split: {target} → A({len(a_indices)}v) / B({len(b_indices)}v)"
 
     def assign_mask(self):
@@ -471,9 +509,10 @@ class AffordanceApp:
             "comment": "",
         })
         self.viewer.update_colors(self.label)
-        self.ctrl.view_update()
         self.state.mask_text = self._fmt_masks()
+        self._update_legend()
         self._refresh_dropdowns()
+        self.ctrl.view_update()
         self.state.status_msg = f"Mask: {mask_type} A:{a_part} B:{b_part}"
 
     def remove_last_pose(self):
@@ -518,6 +557,7 @@ class AffordanceApp:
             self.state.mask_text = self._fmt_masks()
             self.state.pose_text = self._fmt_poses()
             self._refresh_dropdowns()
+            self._update_legend()
             self.state.status_msg = f"Loaded: {filepath.name}"
         except FileNotFoundError:
             self.state.status_msg = f"Not Found: {filepath.name}"
