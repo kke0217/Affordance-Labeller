@@ -59,11 +59,13 @@ class AffordanceApp:
         self.state.current_part = "body"
         self.state.brush_radius = 0.01
         self.state.n_clusters = 4
+        self.state.rename_from = "(none)"
+        self.state.rename_to = ""
         self.state.object_id = self.label.get("object_id", object_id)
         self.state.annotator = self.label.get("annotator", "고광은")
         self.state.review_status = self.label.get("review_status", "draft")
         self.state.status_msg = "Ctrl+드래그=orbit | Start Painting 후 클릭/드래그=칠하기"
-        self.state.parts_text = self._fmt_parts()
+        self._refresh_parts_ui()
         self.state.aff_text = self._fmt_affs()
         self.state.mask_text = self._fmt_masks()
         self.state.pose_text = self._fmt_poses()
@@ -98,24 +100,31 @@ class AffordanceApp:
         part["vertex_indices"] = sorted(current)
         self.viewer.update_colors(self.label)
         self.ctrl.view_update()
-        self.state.parts_text = self._fmt_parts()
+        self._refresh_parts_ui()
         self.state.status_msg = f"painted {len(nearby)}v → {part_name}"
 
     # === Erasing (오른쪽 클릭/드래그) ===
     def erase_at(self, hit_point):
-        """hit_point 주변 vertex를 모든 part에서 제거 → 회색으로 복원"""
+        """hit_point 주변 vertex를 현재 선택된 part에서만 제거"""
         mesh = self.viewer.pv_mesh
         radius = self.state.brush_radius
         dists = np.linalg.norm(mesh.points - hit_point, axis=1)
         nearby = set(np.where(dists < radius)[0].tolist())
         if not nearby:
             return
-        for p in self.label["parts"]:
-            p["vertex_indices"] = [v for v in p["vertex_indices"] if v not in nearby]
+        part_name = self.state.current_part
+        part = next((p for p in self.label["parts"] if p["name"] == part_name), None)
+        if part:
+            # 선택된 part에서만 제거
+            part["vertex_indices"] = [v for v in part["vertex_indices"] if v not in nearby]
+        else:
+            # part가 없으면 모든 part에서 제거
+            for p in self.label["parts"]:
+                p["vertex_indices"] = [v for v in p["vertex_indices"] if v not in nearby]
         self.viewer.update_colors(self.label)
         self.ctrl.view_update()
-        self.state.parts_text = self._fmt_parts()
-        self.state.status_msg = f"erased {len(nearby)}v"
+        self._refresh_parts_ui()
+        self.state.status_msg = f"erased {len(nearby)}v from '{part_name}'"
 
     # === Pose 시각화 헬퍼 ===
     def _create_pose_axes(self, name, pos, rotation_xyzw, scale=0.015):
@@ -264,7 +273,7 @@ class AffordanceApp:
             "vertex_indices": [], "face_indices": [],
             "visible": True, "color": [c / 255.0 for c in color], "comment": "",
         })
-        self.state.parts_text = self._fmt_parts()
+        self._refresh_parts_ui()
         self._refresh_dropdowns()
         self.state.status_msg = f"Part 추가: {name}"
 
@@ -275,9 +284,41 @@ class AffordanceApp:
                 (self.viewer.pv_mesh.n_points, 3), 180, dtype=np.uint8
             )
             self.ctrl.view_update()
-        self.state.parts_text = self._fmt_parts()
+        self._refresh_parts_ui()
         self._refresh_dropdowns()
         self.state.status_msg = "Parts 초기화"
+
+    def rename_part(self):
+        """선택된 part의 이름을 변경"""
+        old_name = self.state.rename_from
+        new_name = self.state.rename_to.strip()
+        if old_name == "(none)" or not new_name:
+            self.state.status_msg = "Rename: part와 새 이름을 입력하세요"
+            return
+        part = next((p for p in self.label["parts"] if p["name"] == old_name), None)
+        if part is None:
+            self.state.status_msg = f"Rename: '{old_name}' 없음"
+            return
+        if any(p["name"] == new_name for p in self.label["parts"]):
+            self.state.status_msg = f"Rename: '{new_name}' 이미 존재"
+            return
+        # part 이름 + ID 변경
+        old_id = part["part_id"]
+        part["name"] = new_name
+        part["part_id"] = f"part_{new_name}"
+        part["color"] = [c / 255.0 for c in get_part_color(new_name)]
+        # affordance, mask의 part_ref도 갱신
+        for aff in self.label.get("affordances", []):
+            if aff.get("part_ref") == old_id:
+                aff["part_ref"] = part["part_id"]
+        for mask in self.label.get("contact_region_masks", []):
+            if mask.get("part_ref") == old_id:
+                mask["part_ref"] = part["part_id"]
+        self.viewer.update_colors(self.label)
+        self.ctrl.view_update()
+        self._refresh_parts_ui()
+        self._refresh_dropdowns()
+        self.state.status_msg = f"Renamed: {old_name} → {new_name}"
 
     def auto_segment(self):
         if self.viewer.tri_mesh is None:
@@ -295,6 +336,34 @@ class AffordanceApp:
         self._apply_segment_result(parts)
         self.state.status_msg = f"Auto Segment 완료 (generic, {n_clusters} clusters)"
 
+    def _refresh_parts_ui(self):
+        """parts 텍스트 + legend 동시 갱신"""
+        self.state.parts_text = self._fmt_parts()
+        self._update_legend()
+
+    def _update_legend(self):
+        """3D 뷰포트에 part 색상 범례 표시"""
+        if not self.label.get("parts"):
+            try:
+                self.plotter.remove_legend()
+            except Exception:
+                pass
+            return
+        labels = []
+        for p in self.label["parts"]:
+            c = get_part_color(p["name"])
+            color = [c[0] / 255.0, c[1] / 255.0, c[2] / 255.0] if max(c[:3]) > 1 else list(c[:3])
+            n = len(p.get("vertex_indices", []))
+            labels.append([f"{p['name']} ({n}v)", color])
+        if labels:
+            self.plotter.add_legend(
+                labels=labels,
+                bcolor=(1, 1, 1),
+                border=True,
+                size=(0.2, 0.25),
+                loc="upper left",
+            )
+
     def _apply_segment_result(self, parts: dict):
         """분할 결과를 label에 적용 + 시각화"""
         self.label["parts"] = []
@@ -307,8 +376,9 @@ class AffordanceApp:
                 "source_type": "auto",
             })
         self.viewer.update_colors(self.label)
+        self._update_legend()
         self.ctrl.view_update()
-        self.state.parts_text = self._fmt_parts()
+        self._refresh_parts_ui()
         self._refresh_dropdowns()
 
     def assign_affordance(self):
@@ -443,7 +513,7 @@ class AffordanceApp:
             self.state.review_status = self.label.get("review_status", "draft")
             self.viewer.update_colors(self.label)
             self.ctrl.view_update()
-            self.state.parts_text = self._fmt_parts()
+            self._refresh_parts_ui()
             self.state.aff_text = self._fmt_affs()
             self.state.mask_text = self._fmt_masks()
             self.state.pose_text = self._fmt_poses()
@@ -550,6 +620,14 @@ class AffordanceApp:
                             with vuetify3.VCol(cols=4):
                                 vuetify3.VBtn("Stop", click=(self.toggle_paint, "[false]"), color="red", size="x-small", block=True)
                         vuetify3.VBtn("Clear All", click=self.clear_parts, size="x-small", class_="mx-2 mt-1", block=True)
+                        vuetify3.VCardSubtitle("Rename Part", class_="pa-1 mt-1")
+                        with vuetify3.VRow(class_="mx-1", no_gutters=True):
+                            with vuetify3.VCol(cols=5):
+                                vuetify3.VSelect(v_model=("rename_from",), label="From", items=("part_options",), density="compact", hide_details=True)
+                            with vuetify3.VCol(cols=5):
+                                vuetify3.VTextField(v_model=("rename_to",), label="To", density="compact", hide_details=True)
+                            with vuetify3.VCol(cols=2):
+                                vuetify3.VBtn("OK", click=self.rename_part, size="x-small", block=True)
                         vuetify3.VCardText("{{ parts_text }}", class_="text-caption pa-1")
 
                         vuetify3.VDivider(class_="my-2")
