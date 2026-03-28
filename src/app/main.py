@@ -537,9 +537,9 @@ class AffordanceApp:
 
                         # --- Parts ---
                         vuetify3.VCardTitle("Parts", class_="text-subtitle-2 pa-1")
-                        vuetify3.VBtn("Auto Segment (mug)", click=self.auto_segment, color="purple", size="small", block=True, class_="mx-2")
+                        vuetify3.VBtn("Auto Semantic Segment (mug)", click=self.auto_segment, color="purple", size="small", block=True, class_="mx-2")
                         vuetify3.VSlider(v_model=("n_clusters", 4), label="Clusters", min=2, max=8, step=1, hide_details=True, class_="mx-2")
-                        vuetify3.VBtn("Auto Segment (generic)", click=self.auto_segment_generic_action, color="teal", size="small", block=True, class_="mx-2")
+                        vuetify3.VBtn("Auto Geometric Segment", click=self.auto_segment_generic_action, color="teal", size="small", block=True, class_="mx-2")
                         vuetify3.VTextField(v_model=("current_part",), label="Part Name", density="compact", class_="mx-2 mt-1", hide_details=True)
                         vuetify3.VSlider(v_model=("brush_radius",), label="Brush", min=0.002, max=0.05, step=0.001, hide_details=True, class_="mx-2")
                         with vuetify3.VRow(class_="mx-1", no_gutters=True):
