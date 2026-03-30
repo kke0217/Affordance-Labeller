@@ -202,8 +202,16 @@ class AffordanceApp:
         self._create_pose_axes(name, pos, [0.0, 0.0, 0.0, 1.0])
 
         self.state.pose_text = self._fmt_poses()
+        self.state.pose_roll = 0
+        self.state.pose_pitch = 0
+        self.state.pose_yaw = 0
+        self.state.pose_text = self._fmt_poses()
         self._refresh_pose_select()
         self.ctrl.view_update()
+        # Trame state flush 후 강제 dirty
+        self.server.state.flush()
+        self.state.pose_select = name
+        self.state.dirty("pose_select")
         self.state.status_msg = f"Pose: {name} @ [{pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f}]"
         print(f"[pose] {name} at {pos}")
 
@@ -386,13 +394,21 @@ class AffordanceApp:
                 color = [c[0] / 255.0, c[1] / 255.0, c[2] / 255.0] if max(c[:3]) > 1 else list(c[:3])
                 labels.append([f"{p['name']} ({n}v)", color])
 
-        # mask patch 범례
-        for mask in self.label.get("contact_region_masks", []):
+        # mask patch 범례 (mask별 다른 색상)
+        LEGEND_PAIRS = [
+            ([1.0, 0.0, 0.5], [0.0, 0.86, 0.86]),
+            ([1.0, 0.78, 0.0], [0.39, 0.0, 0.78]),
+            ([0.0, 0.78, 0.39], [0.78, 0.0, 0.31]),
+            ([1.0, 0.5, 0.0], [0.0, 0.5, 1.0]),
+        ]
+        for mi, mask in enumerate(self.label.get("contact_region_masks", [])):
             a_n = len(mask.get("patch_a", {}).get("vertex_indices", []))
             b_n = len(mask.get("patch_b", {}).get("vertex_indices", []))
+            pair = LEGEND_PAIRS[mi % len(LEGEND_PAIRS)]
+            mask_name = mask.get("mask_id", "mask")[:20]
             if a_n or b_n:
-                labels.append([f"Patch A: {mask.get('patch_a',{}).get('finger_role','?')} ({a_n}v)", [1.0, 0.31, 0.31]])
-                labels.append([f"Patch B: {mask.get('patch_b',{}).get('finger_role','?')} ({b_n}v)", [0.31, 0.31, 1.0]])
+                labels.append([f"A:{mask.get('patch_a',{}).get('finger_role','?')} ({a_n}v) [{mask_name}]", pair[0]])
+                labels.append([f"B:{mask.get('patch_b',{}).get('finger_role','?')} ({b_n}v)", pair[1]])
 
         if not labels:
             try:
@@ -486,14 +502,20 @@ class AffordanceApp:
         mask_type = self.state.mask_type
         mask_id = f"mask_{mask_type}_{target}_auto"
 
-        self.label["contact_region_masks"].append({
+        new_mask = {
             "mask_id": mask_id, "mask_type": mask_type,
             "part_ref": part["part_id"],
             "patch_a": {"vertex_indices": a_indices, "face_indices": [], "finger_role": self.state.patch_a_role},
             "patch_b": {"vertex_indices": b_indices, "face_indices": [], "finger_role": self.state.patch_b_role},
             "comment": "auto_split (PCA)",
             "source_type": "auto",
-        })
+        }
+        # 동일 part_ref의 기존 mask 교체
+        self.label["contact_region_masks"] = [
+            m for m in self.label["contact_region_masks"]
+            if m.get("part_ref") != part["part_id"]
+        ]
+        self.label["contact_region_masks"].append(new_mask)
         self.viewer.update_colors(self.label)
         self.state.mask_text = self._fmt_masks()
         self._update_legend()
@@ -509,14 +531,21 @@ class AffordanceApp:
         a = next((p for p in self.label["parts"] if p["name"] == a_part), None)
         b = next((p for p in self.label["parts"] if p["name"] == b_part), None)
         mask_type = self.state.mask_type
+        part_ref = (a["part_id"] if a else (b["part_id"] if b else ""))
         mask_id = f"mask_{mask_type}_{a_part}_{b_part}"
-        self.label["contact_region_masks"].append({
+        new_mask = {
             "mask_id": mask_id, "mask_type": mask_type,
-            "part_ref": (a["part_id"] if a else (b["part_id"] if b else "")),
+            "part_ref": part_ref,
             "patch_a": {"vertex_indices": a.get("vertex_indices", []) if a else [], "face_indices": [], "finger_role": self.state.patch_a_role},
             "patch_b": {"vertex_indices": b.get("vertex_indices", []) if b else [], "face_indices": [], "finger_role": self.state.patch_b_role},
             "comment": "",
-        })
+        }
+        # 동일 part_ref를 가진 기존 mask를 모두 교체 (1 part = 1 mask)
+        self.label["contact_region_masks"] = [
+            m for m in self.label["contact_region_masks"]
+            if m.get("part_ref") != part_ref
+        ]
+        self.label["contact_region_masks"].append(new_mask)
         self.viewer.update_colors(self.label)
         self.state.mask_text = self._fmt_masks()
         self._update_legend()

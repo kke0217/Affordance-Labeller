@@ -58,13 +58,19 @@ class TrameMeshViewer:
             if indices:
                 c = AFFORDANCE_COLORS.get(aff["label"], (128, 128, 128, 100))
                 colors[indices] = c[:3]
-        PATCH_A = [255, 80, 80]
-        PATCH_B = [80, 80, 255]
-        for mask in label.get("contact_region_masks", []):
+        # mask별 다른 색상 쌍 (A/B)
+        MASK_COLOR_PAIRS = [
+            ([255, 0, 128], [0, 220, 220]),     # 핫핑크 / 시안
+            ([255, 200, 0], [100, 0, 200]),      # 금색 / 보라
+            ([0, 200, 100], [200, 0, 80]),        # 에메랄드 / 크림슨
+            ([255, 128, 0], [0, 128, 255]),       # 주황 / 코발트
+        ]
+        for mi, mask in enumerate(label.get("contact_region_masks", [])):
+            pair = MASK_COLOR_PAIRS[mi % len(MASK_COLOR_PAIRS)]
             a_idx = mask.get("patch_a", {}).get("vertex_indices", [])
             b_idx = mask.get("patch_b", {}).get("vertex_indices", [])
             if a_idx:
-                colors[a_idx] = PATCH_A
+                colors[a_idx] = pair[0]
             if b_idx:
-                colors[b_idx] = PATCH_B
+                colors[b_idx] = pair[1]
         self.pv_mesh.point_data["colors"] = colors
