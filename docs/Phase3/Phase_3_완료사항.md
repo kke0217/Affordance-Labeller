@@ -136,13 +136,27 @@ project: Affordance-Labeller
 | Provenance | source_type auto/manual + UI 아이콘 | ✅ |
 | Validation | jsonschema + 참조 무결성 + 확장 규칙 | ✅ |
 
-## Sprint D — 미진행
+---
 
-| 카드 | 상태 |
-|---|---|
-| P3-012 Confidence Heuristic | todo |
-| P3-014 렌더링 경량화 | todo |
-| P3-015 Panel 리팩토링 | todo |
+## Phase 3 종료 조건 — 달성
+
+| 조건 | 상태 |
+|------|------|
+| 임의 객체에 대해 라벨링 가능 | ✅ |
+| 검수(review) 워크플로우 가능 | ✅ |
+| zip으로 공유 가능 | ✅ |
+
+Sprint C 완료로 Phase 3는 종료. 단, Import Bundle UI 버튼은 후속 개선 가능 (현재 CLI import 지원).
+
+---
+
+## Sprint D — 품질 개선 트랙 (Phase 3 이후, 별도 진행)
+
+| 카드 | 상태 | 비고 |
+|---|---|---|
+| P3-012 Confidence Heuristic | todo | 편집량/coverage 기반 점수 |
+| P3-014 렌더링 경량화 | todo | Trame 전환으로 일부 해결됨 |
+| P3-015 Panel 리팩토링 | todo | main.py 700줄 모듈 분리 |
 
 ## Phase 4로 이월
 

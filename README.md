@@ -44,6 +44,15 @@ python app/main.py --mesh /path/to/your/object.ply --object-id my_object --serve
 python app/main.py --mesh assets/ycb/025_mug/google_512k/nontextured.ply --label labels/sample_handle_grasp.json --server
 ```
 
+Bundle import (CLI):
+```bash
+python -c "
+import sys; sys.path.insert(0, 'app')
+from io_handler import import_bundle
+import_bundle('path/to/ycb_035_power_drill_bundle.zip', 'labels/')
+"
+```
+
 ## 조작법
 
 | 조작 | 동작 |
