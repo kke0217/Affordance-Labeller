@@ -60,6 +60,7 @@ class AffordanceApp:
         self.state.current_part = "body"
         self.state.brush_radius = 0.01
         self.state.n_clusters = 4
+        self.state.import_path = ""
         self.state.rename_from = "(none)"
         self.state.rename_to = ""
         self.state.object_id = self.label.get("object_id", object_id)
@@ -611,6 +612,30 @@ class AffordanceApp:
         except Exception as e:
             self.state.status_msg = f"Export Error: {e}"
 
+    def do_import(self):
+        """zip bundle 경로를 입력받아 import"""
+        zip_path = self.state.import_path.strip()
+        if not zip_path:
+            self.state.status_msg = "Import: zip 경로를 입력하세요"
+            return
+        try:
+            restored = import_bundle(zip_path, str(LABELS_DIR))
+            self.label = load_label(restored)
+            self.state.object_id = self.label.get("object_id", "")
+            self.state.annotator = self.label.get("annotator", "")
+            self.state.review_status = self.label.get("review_status", "draft")
+            self.viewer.update_colors(self.label)
+            self._refresh_parts_ui()
+            self.state.aff_text = self._fmt_affs()
+            self.state.mask_text = self._fmt_masks()
+            self.state.pose_text = self._fmt_poses()
+            self._refresh_dropdowns()
+            self._update_legend()
+            self.ctrl.view_update()
+            self.state.status_msg = f"Imported: {Path(zip_path).name}"
+        except Exception as e:
+            self.state.status_msg = f"Import Error: {e}"
+
     def do_load(self):
         oid = self.state.object_id
         filepath = LABELS_DIR / f"{oid}.json"
@@ -820,6 +845,15 @@ class AffordanceApp:
                         with vuetify3.VRow(class_="mx-1 mb-2", no_gutters=True):
                             with vuetify3.VCol(cols=12):
                                 vuetify3.VBtn("Export Bundle (.zip)", click=self.do_export, color="teal", size="x-small", block=True)
+                        vuetify3.VTextField(
+                            v_model=("import_path",),
+                            label="Import zip path",
+                            density="compact",
+                            class_="mx-2 mt-1",
+                            hide_details=True,
+                            placeholder="labels/xxx_bundle.zip",
+                        )
+                        vuetify3.VBtn("Import Bundle", click=self.do_import, size="x-small", block=True, class_="mx-2")
 
                     # === 3D 뷰포트 (오른쪽) ===
                     with vuetify3.VCol(cols=9, classes="pa-0"):
