@@ -539,6 +539,7 @@ class AffordanceApp:
         """review_status 전환 — 유효한 전환만 허용"""
         current = self.label.get("review_status", "draft")
         target = self.state.review_status
+        print(f"[review] 전환 시도: {current} → {target}")
         if target == current:
             return
         valid = self.VALID_TRANSITIONS.get(current, [])
@@ -550,9 +551,16 @@ class AffordanceApp:
         if target in ("in_review", "reviewed", "approved"):
             issues = validate_label(self.label)
             errors = [i for i in issues if i["level"] == "error"]
+            warnings = [i for i in issues if i["level"] == "warning"]
+            # reviewed/approved로 갈 때는 warning도 차단
             if errors:
-                self.state.review_status = current  # 원복
-                self.state.status_msg = f"전환 불가: validation error {len(errors)}개"
+                self.state.review_status = current
+                self.state.status_msg = f"전환 불가: error {len(errors)}개"
+                return
+            if target in ("reviewed", "approved") and warnings:
+                self.state.review_status = current
+                msgs = "; ".join(w["message"][:40] for w in warnings[:2])
+                self.state.status_msg = f"전환 불가: warning {len(warnings)}개 — {msgs}"
                 return
         self.label["review_status"] = target
         # 전환 이력 기록
@@ -694,7 +702,8 @@ class AffordanceApp:
                         vuetify3.VCardTitle("Object Info", class_="text-subtitle-2 pa-1")
                         vuetify3.VTextField(v_model=("object_id",), label="Object ID", density="compact", class_="mx-2", hide_details=True)
                         vuetify3.VTextField(v_model=("annotator",), label="Annotator", density="compact", class_="mx-2 mt-1", hide_details=True)
-                        vuetify3.VSelect(v_model=("review_status",), label="Review", items=("['draft','in_review','reviewed','approved']",), density="compact", class_="mx-2 mt-1", hide_details=True, update_modelValue=(self.change_review_status, "[]"))
+                        vuetify3.VSelect(v_model=("review_status",), label="Review", items=("['draft','in_review','reviewed','approved']",), density="compact", class_="mx-2 mt-1", hide_details=True)
+                        vuetify3.VBtn("Set Review", click=self.change_review_status, size="x-small", block=True, class_="mx-2")
 
                         vuetify3.VDivider(class_="my-2")
 
