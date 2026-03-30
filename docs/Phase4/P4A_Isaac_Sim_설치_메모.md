@@ -44,7 +44,26 @@ docker run --gpus all -it nvcr.io/nvidia/isaac-sim:4.5.0
 - https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_pip.html
 - post-install 단계나 추가 패키지가 있을 수 있음
 
+## Windows Workstation 설치 (성공)
+
+- Omniverse Launcher는 2025-10 폐기됨 → **zip 직접 설치**로 진행
+- Isaac Sim 5.1.0 Windows workstation zip 다운로드 → `C:\isaacsim`에 압축 해제
+- `post_install.bat` 실행
+- `isaac-sim.selector.bat` → **Isaac-sim** 선택 → **START**
+- **Isaac Sim Full 5.1.0 정상 로드 확인** (RTX Real-Time, Stage, Content 브라우저)
+
+## 최종 환경
+
+| 항목 | 상태 |
+|------|------|
+| 서버 | kopoter Windows 11 Pro |
+| GPU | RTX 4090 24GB |
+| RAM | 32GB |
+| Isaac Sim | **5.1.0 (workstation zip)** |
+| 설치 경로 | `C:\isaacsim` |
+| 실행 방식 | `isaac-sim.selector.bat` → START |
+
 ## 다음 액션
-- [ ] NVIDIA 공식 pip 설치 가이드 상세 확인
-- [ ] Omniverse Launcher 설치 시도 (가장 안정적)
-- [ ] 또는 Docker 방식 검토
+- [ ] Isaac Sim에서 YCB mug USD 로드 테스트
+- [ ] PhysX ContactReporter API 확인
+- [ ] P4-A 스크립트 작성 (Mac에서 코드 → GitHub → Windows에서 실행)
