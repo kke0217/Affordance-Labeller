@@ -94,9 +94,9 @@
   ],
   "affordances": [
     {
-      "affordance_id": "aff_body_non_affordance",
-      "label": "non_affordance",
-      "part_ref": "part_body",
+      "affordance_id": "aff_head_handover_region",
+      "label": "handover_region",
+      "part_ref": "part_head",
       "vertex_indices": [],
       "face_indices": [],
       "semantic_tags": [
@@ -105,69 +105,28 @@
       "source_type": "manual",
       "confidence": 1.0,
       "comment": "",
-      "vertex_indices_file": "ycb_035_power_drill_vertices/aff_body_non_affordance.npy"
-    },
-    {
-      "affordance_id": "aff_battery_graspable",
-      "label": "graspable",
-      "part_ref": "part_battery",
-      "vertex_indices": [],
-      "face_indices": [],
-      "semantic_tags": [
-        "pick_up"
-      ],
-      "source_type": "manual",
-      "confidence": 1.0,
-      "comment": "",
-      "vertex_indices_file": "ycb_035_power_drill_vertices/aff_battery_graspable.npy"
-    },
-    {
-      "affordance_id": "aff_fan_handover_region",
-      "label": "handover_region",
-      "part_ref": "part_fan",
-      "vertex_indices": [],
-      "face_indices": [],
-      "semantic_tags": [
-        "place_down"
-      ],
-      "source_type": "manual",
-      "confidence": 1.0,
-      "comment": "",
-      "vertex_indices_file": "ycb_035_power_drill_vertices/aff_fan_handover_region.npy"
-    },
-    {
-      "affordance_id": "aff_head_placeable",
-      "label": "placeable",
-      "part_ref": "part_head",
-      "vertex_indices": [],
-      "face_indices": [],
-      "semantic_tags": [
-        "handover_ready"
-      ],
-      "source_type": "manual",
-      "confidence": 1.0,
-      "comment": "",
-      "vertex_indices_file": "ycb_035_power_drill_vertices/aff_head_placeable.npy"
+      "vertex_indices_file": "ycb_035_power_drill_vertices/aff_head_handover_region.npy"
     }
   ],
   "contact_region_masks": [
     {
-      "mask_id": "mask_handle_pinch_body_fan",
+      "mask_id": "mask_handle_pinch_head_auto",
       "mask_type": "handle_pinch",
-      "part_ref": "part_body",
+      "part_ref": "part_head",
       "patch_a": {
         "vertex_indices": [],
         "face_indices": [],
-        "finger_role": "index",
-        "vertex_indices_file": "ycb_035_power_drill_vertices/mask_handle_pinch_body_fan_patch_a.npy"
+        "finger_role": "thumb",
+        "vertex_indices_file": "ycb_035_power_drill_vertices/mask_handle_pinch_head_auto_patch_a.npy"
       },
       "patch_b": {
         "vertex_indices": [],
         "face_indices": [],
-        "finger_role": "palm",
-        "vertex_indices_file": "ycb_035_power_drill_vertices/mask_handle_pinch_body_fan_patch_b.npy"
+        "finger_role": "index_middle",
+        "vertex_indices_file": "ycb_035_power_drill_vertices/mask_handle_pinch_head_auto_patch_b.npy"
       },
-      "comment": ""
+      "comment": "auto_split (PCA)",
+      "source_type": "auto"
     }
   ],
   "candidate_poses": [
@@ -175,18 +134,18 @@
       "pose_id": "pose_grasp_01_00",
       "name": "grasp_01_00",
       "translation": [
-        0.020859913120178753,
-        0.0732779373757301,
-        0.041648894511318646
+        -0.12315512587619586,
+        0.07820224841617156,
+        0.04368695321678763
       ],
       "rotation_xyzw": [
-        0.4653151102717789,
-        0.4216957229064428,
-        -0.2686498041734119,
-        0.7303984174084459
+        0.0,
+        -1.0,
+        0.0,
+        6.123233995736766e-17
       ],
-      "linked_affordance_id": "aff_body_non_affordance",
-      "linked_mask_id": "mask_handle_pinch_body_fan",
+      "linked_affordance_id": "aff_head_handover_region",
+      "linked_mask_id": "mask_handle_pinch_head_auto",
       "semantic_tags": [],
       "grasp_type": "pinch",
       "hand_role": "right",
@@ -197,5 +156,5 @@
   ],
   "annotator": "고광은",
   "review_status": "draft",
-  "updated_at": "2026-03-30T05:41:00.297009+00:00"
+  "updated_at": "2026-03-30T08:40:25.292674+00:00"
 }

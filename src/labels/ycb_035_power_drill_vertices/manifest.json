@@ -1,12 +1,12 @@
 {
   "manifest_version": "1.0",
-  "created_at": "2026-03-30T05:41:00.375209+00:00",
-  "file_count": 17,
+  "created_at": "2026-03-30T08:40:25.361109+00:00",
+  "file_count": 20,
   "files": {
     "ycb_035_power_drill.json": {
       "type": "label_json",
-      "size": 4934,
-      "sha256": "5e7d7c8bccaea3101a7ecce91349aca2aba04a543ccf5b021e43cbaa19d1b74a"
+      "size": 3770,
+      "sha256": "6dc7e0ea88eadb47dd1600df72a23a39e6389e2d8dbbcf338e01d1ce01128029"
     },
     "ycb_035_power_drill_vertices/aff_battery_graspable.npy": {
       "type": "vertex_indices",
@@ -33,6 +33,11 @@
       "size": 101156,
       "sha256": "5fdaf47554d6b5fce4105d62ca8185b703bae92a72591c893618d15f134996ba"
     },
+    "ycb_035_power_drill_vertices/aff_head_handover_region.npy": {
+      "type": "vertex_indices",
+      "size": 252560,
+      "sha256": "dac77b774a6a0da0f1378301cf0917421659c3af5e054c517b3d129fa14685f4"
+    },
     "ycb_035_power_drill_vertices/aff_head_placeable.npy": {
       "type": "vertex_indices",
       "size": 252560,
@@ -57,6 +62,16 @@
       "type": "vertex_indices",
       "size": 208080,
       "sha256": "0dadd8f0ba1ff7c38b45626fb16334b12055062ed446c70540022b7bd0330330"
+    },
+    "ycb_035_power_drill_vertices/mask_handle_pinch_head_auto_patch_a.npy": {
+      "type": "vertex_indices",
+      "size": 126344,
+      "sha256": "0245cee52ff43ded87d09be4d7cfa5b05f3ddaf01b1803d39a9b4b5633a42182"
+    },
+    "ycb_035_power_drill_vertices/mask_handle_pinch_head_auto_patch_b.npy": {
+      "type": "vertex_indices",
+      "size": 126344,
+      "sha256": "4dafe5d90477d1e70a3cfe4153c6c5298469dce767a4363f6d68b563bdad2383"
     },
     "ycb_035_power_drill_vertices/part_battery.npy": {
       "type": "vertex_indices",
