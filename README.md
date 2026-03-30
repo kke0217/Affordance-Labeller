@@ -199,8 +199,18 @@ object_id → parts → affordances → contact_region_masks → candidate_poses
 | Phase 3 Sprint A | 완료 | PyVista+Trame 전환 + bundle manifest |
 | Phase 3 Sprint B | 완료 | K-means 자동 분할 + PCA patch 제안 + rename + legend |
 | Phase 3 Sprint C | 완료 | Review workflow + bundle .zip export + export mapping memo |
-| Phase 3 Sprint D | 미진행 | confidence heuristic + 렌더링 최적화 |
-| Phase 4 | 구상 | VR + Isaac Sim 자동 라벨링 |
+| Phase 3 | **종료** | 라벨링 가능 + 검수 가능 + zip 공유 가능 |
+| Phase 4 P4-A | **진행중** | Isaac Sim 5.1.0 설치 완료 (kopoter RTX 4090) |
+
+### Phase 4 로드맵
+
+```
+P4-A: Physics extraction (VR 없이) — Isaac Sim에서 contact/pose/stability 자동 추출
+P4-B: VR demonstration 연동 — VR 컨트롤러로 파지 시연
+P4-C: Dataset export + downstream 검증 — RLDS/LeRobot + 학습 파이프라인
+```
+
+개발 환경: Mac (코드 작성) + Windows kopoter (Isaac Sim 실행) + GitHub (동기화)
 
 ## 개발자
 
