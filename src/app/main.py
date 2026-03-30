@@ -20,6 +20,7 @@ from trame.widgets import vuetify3, vtk as vtk_widgets
 from io_handler import (
     create_empty_label, save_label, load_label,
     validate_label, print_validation_report, LABELS_DIR,
+    export_bundle, import_bundle,
 )
 from viewer import auto_segment_mug, auto_segment_generic, get_part_color
 from viewer_trame import TrameMeshViewer
@@ -526,6 +527,45 @@ class AffordanceApp:
         else:
             self.state.status_msg = "삭제할 pose 없음"
 
+    # === Review Workflow ===
+    VALID_TRANSITIONS = {
+        "draft": ["in_review"],
+        "in_review": ["reviewed", "draft"],
+        "reviewed": ["approved", "draft"],
+        "approved": ["draft"],
+    }
+
+    def change_review_status(self):
+        """review_status 전환 — 유효한 전환만 허용"""
+        current = self.label.get("review_status", "draft")
+        target = self.state.review_status
+        if target == current:
+            return
+        valid = self.VALID_TRANSITIONS.get(current, [])
+        if target not in valid:
+            self.state.review_status = current  # 원복
+            self.state.status_msg = f"전환 불가: {current} → {target} (허용: {valid})"
+            return
+        # 전환 시 검증
+        if target in ("in_review", "reviewed", "approved"):
+            issues = validate_label(self.label)
+            errors = [i for i in issues if i["level"] == "error"]
+            if errors:
+                self.state.review_status = current  # 원복
+                self.state.status_msg = f"전환 불가: validation error {len(errors)}개"
+                return
+        self.label["review_status"] = target
+        # 전환 이력 기록
+        from datetime import datetime, timezone
+        if "review_history" not in self.label:
+            self.label["review_history"] = []
+        self.label["review_history"].append({
+            "from": current, "to": target,
+            "by": self.state.annotator,
+            "at": datetime.now(timezone.utc).isoformat(),
+        })
+        self.state.status_msg = f"Review: {current} → {target}"
+
     def do_save(self):
         self.label["object_id"] = self.state.object_id
         self.label["annotator"] = self.state.annotator
@@ -542,6 +582,19 @@ class AffordanceApp:
                 self.state.status_msg = f"Saved: {Path(path).name} ✓"
         except Exception as e:
             self.state.status_msg = f"Error: {e}"
+
+    def do_export(self):
+        """현재 라벨을 .zip bundle로 export"""
+        oid = self.state.object_id
+        json_path = LABELS_DIR / f"{oid}.json"
+        if not json_path.exists():
+            self.state.status_msg = "Export: 먼저 Save하세요"
+            return
+        try:
+            zip_path = export_bundle(str(json_path))
+            self.state.status_msg = f"Exported: {Path(zip_path).name}"
+        except Exception as e:
+            self.state.status_msg = f"Export Error: {e}"
 
     def do_load(self):
         oid = self.state.object_id
@@ -641,7 +694,7 @@ class AffordanceApp:
                         vuetify3.VCardTitle("Object Info", class_="text-subtitle-2 pa-1")
                         vuetify3.VTextField(v_model=("object_id",), label="Object ID", density="compact", class_="mx-2", hide_details=True)
                         vuetify3.VTextField(v_model=("annotator",), label="Annotator", density="compact", class_="mx-2 mt-1", hide_details=True)
-                        vuetify3.VSelect(v_model=("review_status",), label="Review", items=("['draft','in_review','reviewed','approved']",), density="compact", class_="mx-2 mt-1", hide_details=True)
+                        vuetify3.VSelect(v_model=("review_status",), label="Review", items=("['draft','in_review','reviewed','approved']",), density="compact", class_="mx-2 mt-1", hide_details=True, update_modelValue=(self.change_review_status, "[]"))
 
                         vuetify3.VDivider(class_="my-2")
 
@@ -743,11 +796,14 @@ class AffordanceApp:
                         vuetify3.VDivider(class_="my-2")
 
                         # --- File ---
-                        with vuetify3.VRow(class_="mx-1 mb-2", no_gutters=True):
+                        with vuetify3.VRow(class_="mx-1 mb-1", no_gutters=True):
                             with vuetify3.VCol(cols=6):
                                 vuetify3.VBtn("Save", click=self.do_save, color="blue", size="small", block=True)
                             with vuetify3.VCol(cols=6):
                                 vuetify3.VBtn("Load", click=self.do_load, size="small", block=True)
+                        with vuetify3.VRow(class_="mx-1 mb-2", no_gutters=True):
+                            with vuetify3.VCol(cols=12):
+                                vuetify3.VBtn("Export Bundle (.zip)", click=self.do_export, color="teal", size="x-small", block=True)
 
                     # === 3D 뷰포트 (오른쪽) ===
                     with vuetify3.VCol(cols=9, classes="pa-0"):

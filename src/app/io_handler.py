@@ -585,6 +585,71 @@ def print_validation_report(issues: list[dict]):
         print(f"  [WARNING] {issue['message']}")
 
 
+# ============================================================
+# Bundle Export / Import (.zip)
+# ============================================================
+def export_bundle(json_path: str, output_zip: Optional[str] = None) -> str:
+    """JSON + .npy + manifest를 .zip으로 묶어 export
+
+    Args:
+        json_path: 라벨 JSON 파일 경로
+        output_zip: 출력 .zip 경로 (None이면 자동 생성)
+
+    Returns:
+        생성된 .zip 파일 경로
+    """
+    import zipfile
+    json_path = Path(json_path)
+    if not json_path.exists():
+        raise FileNotFoundError(f"라벨 파일 없음: {json_path}")
+
+    npy_dir = json_path.parent / f"{json_path.stem}_vertices"
+
+    if output_zip is None:
+        output_zip = str(json_path.parent / f"{json_path.stem}_bundle.zip")
+
+    with zipfile.ZipFile(output_zip, "w", zipfile.ZIP_DEFLATED) as zf:
+        # JSON
+        zf.write(str(json_path), json_path.name)
+        # .npy + manifest
+        if npy_dir.exists():
+            for f in npy_dir.iterdir():
+                zf.write(str(f), f"{npy_dir.name}/{f.name}")
+
+    print(f"[export] bundle 생성: {output_zip}")
+    return output_zip
+
+
+def import_bundle(zip_path: str, output_dir: Optional[str] = None) -> str:
+    """zip bundle을 풀어 JSON + .npy 복원
+
+    Args:
+        zip_path: .zip 파일 경로
+        output_dir: 출력 디렉토리 (None이면 labels/)
+
+    Returns:
+        복원된 JSON 파일 경로
+    """
+    import zipfile
+    zip_path = Path(zip_path)
+    if not zip_path.exists():
+        raise FileNotFoundError(f"zip 파일 없음: {zip_path}")
+
+    if output_dir is None:
+        output_dir = str(LABELS_DIR)
+
+    with zipfile.ZipFile(str(zip_path), "r") as zf:
+        zf.extractall(output_dir)
+        json_files = [f for f in zf.namelist() if f.endswith(".json") and "/" not in f]
+
+    if not json_files:
+        raise ValueError("zip에 JSON 파일이 없습니다")
+
+    restored_path = str(Path(output_dir) / json_files[0])
+    print(f"[import] bundle 복원: {restored_path}")
+    return restored_path
+
+
 # === CLI 테스트 ===
 if __name__ == "__main__":
     # 빈 라벨 생성 테스트
