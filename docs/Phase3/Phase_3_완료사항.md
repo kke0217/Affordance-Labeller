@@ -2,6 +2,7 @@
 title: Phase 3 완료사항
 status: in_progress
 created: 2026-03-27
+updated: 2026-03-30
 project: Affordance-Labeller
 ---
 
@@ -11,60 +12,104 @@ project: Affordance-Labeller
 
 ### P3-000b 오브젝트 네이밍 정리 ✅
 - `/object/mug` → `/object/mesh` 일반화
-- 코드 내 mug 하드코딩 제거 (함수명 `auto_segment_mug`은 mug 전용임을 명시하여 유지)
 - 커밋: `b220d36`
 
 ### P3-004 Bundle Manifest 정의 ✅
-- `manifest.json` 자동 생성 (save_label 시)
-- 필드: manifest_version, created_at, file_count, files (상대경로 + size + sha256)
-- npy_dir/manifest.json에 저장
+- `manifest.json` 자동 생성 (version, file_count, sha256 checksum)
 - 커밋: `2860152`
 
 ### P3-005 Save 무결성 검사 ✅
-- 저장 직전 참조 `.npy` 존재 확인
-- 고아 `.npy` 파일 감지 (manifest에 없는 파일)
-- JSON 내 `vertex_indices_file` 참조 ↔ 실제 파일 대조
+- 참조 `.npy` 존재 확인, 고아 파일 감지
 - 커밋: `2860152`
 
 ### P3-006 Load Bundle Validation ✅
 - manifest 기반 파일 존재 + checksum 확인
-- `.npy` 파일 누락 시 에러 로그
-- v0.1 인라인 JSON 하위 호환 유지
 - 커밋: `2860152`
 
 ### P3-000 프레임워크 전환 PoC ✅
 - **결정: PyVista+Trame으로 전환 Go**
-- `main_trame.py` 전체 앱 구현
-- Custom VTK InteractorStyle (`PaintInteractorStyle`):
-  - 왼쪽 클릭/드래그 = vertex painting (orbit 차단 없음)
-  - 오른쪽 클릭/드래그 = vertex 지우기 (eraser)
-  - Ctrl+드래그 = full orbit 회전 (yaw만이 아닌 full trackball)
-  - 드래그 중 연속 painting 가능 (Viser에서 불가능했던 기능)
-- VtkRemoteView 서버 사이드 렌더링
-- Vuetify3 사이드패널 (VRow/VCol 레이아웃)
+- Custom VTK InteractorStyle: 좌클릭=painting, 우클릭=지우기, Ctrl+드래그=orbit
 - 커밋: `eec79f7`
 
 ---
 
-## Sprint A 이후 추가 구현 사항
+## Sprint B — 반자동 보조 (완료)
 
-### 우클릭 지우기 (Eraser) ✅
-- Paint 모드에서 오른쪽 클릭/드래그 → 해당 영역 vertex를 모든 part에서 제거
-- 회색(기본색)으로 복원
-- 커밋: `24de0dc`
+### P3-001 Part Suggestion PoC ✅
+- `auto_segment_generic()`: K-means + 법선 방향 기반 범용 자동 분할
+- Clusters 슬라이더 (2~8) + Auto Geometric Segment 버튼
+- `source_type: "auto"` provenance 기록
+- 커밋: `1ab6a44`
 
-### Pose 배치 (클릭 → RGB 좌표축) ✅
-- **Place Pose** → 객체 표면 클릭 → 클릭 위치에 RGB 좌표축 화살표 생성
-  - 빨강=X, 초록=Y, 파랑=Z + 중심 흰색 구체
-- 연속 배치 가능 (자동 이름 증가: grasp_00, grasp_01, ...)
-- **Stop** 버튼으로 배치 모드 종료
-- **Remove Last** → pose 데이터 + 3D 마커 동시 삭제
+### P3-002 Contact Patch 자동 제안 ✅
+- `auto_split_patch()`: PCA 주성분 방향으로 part vertex 자동 양분
+- Split Part 선택 → Auto Split → A/B 버튼
+- 커밋: `1ab6a44`
 
-### Pose 회전 편집 (Euler 슬라이더) ✅
-- **Select Pose** 드롭다운에서 기존 pose 선택
-- **Roll / Pitch / Yaw 슬라이더** (-180°~180°, 5° 단위)
-- 슬라이더 조절 시 3D 좌표축 화살표가 **실시간 회전**
-- 내부적으로 euler → quaternion 변환하여 `rotation_xyzw`에 저장
+### P3-003 Suggestion Provenance ✅
+- parts/masks에 `source_type` 필드 (`"auto"` vs `"manual"`)
+- UI 표시: 🤖=auto, ✋=manual
+- 커밋: `1ab6a44`
+
+### P3-011 Validation 규칙 확장 ✅
+- semantic tag + grasp_type 비상식 조합 경고
+- part coverage 비율 경고 (vertex 0개)
+- mask patch A/B 비어있음 경고
+- canonical frame origin 기본값 info
+- 커밋: `1ab6a44`
+
+---
+
+## Sprint C — Export + Review (완료)
+
+### P3-013 Review Workflow ✅
+- 상태 전환 규칙: `draft → in_review → reviewed → approved`
+- 유효하지 않은 전환 차단 (예: draft → approved 불가)
+- `reviewed`/`approved` 전환 시 warning도 차단 (parts 없으면 전환 불가)
+- `review_history` 이력 자동 기록 (from, to, by, at)
+- Set Review 버튼으로 명시적 전환
+- 커밋: `b557014`, `751f95e`
+
+### P3-007 Bundle Export/Import ✅
+- `export_bundle()`: JSON + .npy + manifest → .zip 압축
+- `import_bundle()`: .zip → labels/ 디렉토리에 복원
+- UI Export Bundle (.zip) 버튼
+- round-trip 테스트 통과
+- 커밋: `b557014`
+
+### P3-008 Export Mapping Memo ✅
+- 내부 JSON ↔ RLDS/LeRobot 필드 매핑 테이블 문서
+- 누락 필드 목록 (episode_id, camera_config 등 → Phase 4에서 추가)
+- RLDS/LeRobot export stub 구현은 Phase 4로 이월
+- 커밋: `b557014`
+
+---
+
+## Sprint C 이후 추가 구현
+
+### Part Rename + 색상 보존 ✅
+- Rename Part: From → To + OK 버튼
+- rename 시 기존 색상 유지 (팔레트 인덱스 상속)
+- affordance/mask의 part_ref 자동 갱신
+- `current_part` 자동 갱신
+- 커밋: `7f3faec`
+
+### 3D 범례 (Legend) ✅
+- 3D 뷰포트 좌측 상단에 실시간 범례
+- Part 색상 + 이름 + vertex 수
+- Affordance 할당 시 affordance 색상 + class + semantic tags로 변경
+- Contact Mask 할당 시 Patch A(빨강)/B(파랑) + finger_role 추가
+- parts/affordance/mask 변경 시 자동 갱신
+- 커밋: `7f3faec`, `cdd0c49`
+
+### 선택적 지우기 ✅
+- 우클릭: 현재 선택된 part에서만 vertex 제거 (다른 part 보존)
+- 커밋: `7f3faec`
+
+### UI 개선 ✅
+- 사이드패널 섹션 번호 추가: 1. Object Info → 2. Parts → 3. Affordances → 4. Contact Masks → 5. Poses
+- Auto Semantic Segment에서 (mug) 제거
+- 커밋: 최신
 
 ---
 
@@ -73,51 +118,52 @@ project: Affordance-Labeller
 | 기능 | 조작 | 상태 |
 |---|---|---|
 | Part painting | 좌클릭/드래그 | ✅ |
-| Part 지우기 | 우클릭/드래그 | ✅ |
+| Part 선택적 지우기 | 우클릭/드래그 | ✅ |
 | Orbit 회전 | Ctrl+드래그 | ✅ |
-| Auto Segment (mug) | 버튼 | ✅ |
+| Auto Semantic Segment | 버튼 (mug 전용) | ✅ |
+| Auto Geometric Segment | K-means + Clusters 슬라이더 | ✅ |
+| Part Rename | From → To + OK | ✅ |
+| 3D 범례 | 좌측 상단 실시간 갱신 | ✅ |
 | Affordance 할당 | 드롭다운 → Assign | ✅ |
-| Contact Mask | Part 기반 할당 | ✅ |
-| Pose 배치 | Place Pose → 표면 클릭 | ✅ |
+| Contact Mask 수동 | Part 기반 Patch A/B 할당 | ✅ |
+| Contact Mask Auto Split | PCA 기반 자동 양분 | ✅ |
+| Pose 배치 | Place Pose → 표면 클릭 → RGB 좌표축 | ✅ |
 | Pose 회전 편집 | Select → Roll/Pitch/Yaw 슬라이더 | ✅ |
 | Pose 삭제 | Remove Last (마커 동시 삭제) | ✅ |
-| Save/Load | 버튼 (bundle manifest 포함) | ✅ |
+| Review workflow | 상태 전환 규칙 + validation 차단 + 이력 | ✅ |
+| Save/Load | JSON + .npy + manifest | ✅ |
+| Export Bundle | .zip 묶기 | ✅ |
+| Provenance | source_type auto/manual + UI 아이콘 | ✅ |
+| Validation | jsonschema + 참조 무결성 + 확장 규칙 | ✅ |
 
-## Viser 대비 개선 사항
+## Sprint D — 미진행
 
-| 항목 | Viser (Phase 2) | Trame (Phase 3) |
-|---|---|---|
-| Painting 중 orbit | 불가 (Start/Stop 토글) | **Ctrl+드래그로 동시 가능** |
-| 드래그 연속 painting | 불가 (click 1회씩) | **드래그로 연속 painting** |
-| 지우기 | 없음 | **우클릭/드래그** |
-| Modifier 키 | 감지 불가 | **Ctrl/Shift 감지 가능** |
-| Pose 배치 | 기즈모 (Place → Confirm) | **표면 클릭 → 즉시 생성** |
-| Pose 회전 | 기즈모 드래그 | **Euler 슬라이더 + 실시간 시각화** |
-| 메시 색상 갱신 | remove+re-add (깜빡임) | **point_data 직접 갱신** |
+| 카드 | 상태 |
+|---|---|
+| P3-012 Confidence Heuristic | todo |
+| P3-014 렌더링 경량화 | todo |
+| P3-015 Panel 리팩토링 | todo |
 
-## 미결 사항
+## Phase 4로 이월
 
-- **Pose 축 컨벤션**: RGB 축이 approach/grip/palm 중 어디에 대응하는지 미정의. 로봇 플랫폼 확정 후 결정 예정.
-- **Pose gizmo 드래그 회전**: 화살표 끝점 드래그로 직접 회전 편집은 구현 복잡도 대비 효용이 낮아 보류.
+| 카드 | 이유 |
+|---|---|
+| P3-009 RLDS export stub | 실제 학습 파이프라인 연결 시 구현 |
+| P3-010 LeRobot export stub | 동일 |
 
 ---
 
 ## 실행 명령
 
 ```bash
-# Trame 버전 (신규)
 cd src/
-python app/main_trame.py --mesh assets/ycb/025_mug/google_512k/nontextured.ply --server
 
-# Viser 버전 (이전, 유지)
-python app/main.py --mesh assets/ycb/025_mug/google_512k/nontextured.ply
+# PyVista+Trame 버전 (현재 메인)
+python app/main.py --mesh assets/ycb/025_mug/google_512k/nontextured.ply --server
+
+# 다른 객체
+python app/main.py --mesh assets/ycb/035_power_drill/google_512k/nontextured.ply --object-id ycb_035_power_drill --server
+
+# 기존 라벨 로드
+python app/main.py --mesh assets/ycb/025_mug/google_512k/nontextured.ply --label labels/sample_handle_grasp.json --server
 ```
-
-## 관련 커밋
-
-| 커밋 | 내용 |
-|------|------|
-| `b220d36` | P3-000b 네이밍 정리 |
-| `2860152` | P3-004/005/006 bundle manifest + 무결성 검증 |
-| `eec79f7` | P3-000 PyVista+Trame 전환 |
-| `24de0dc` | 우클릭 지우기 + 클릭 pose 배치 |

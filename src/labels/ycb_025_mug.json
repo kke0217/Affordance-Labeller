@@ -40,52 +40,82 @@
         0.7843137254901961
       ],
       "comment": "",
+      "source_type": "auto",
       "vertex_indices_file": "ycb_025_mug_vertices/part_body.npy"
-    }
-  ],
-  "affordances": [
+    },
     {
-      "affordance_id": "aff_body_pour_support",
-      "label": "pour_support",
-      "part_ref": "part_body",
+      "part_id": "part_handle",
+      "name": "handle",
       "vertex_indices": [],
       "face_indices": [],
-      "semantic_tags": [
-        "pour_ready"
+      "visible": true,
+      "color": [
+        0.19607843137254902,
+        0.7843137254901961,
+        0.19607843137254902,
+        0.7843137254901961
       ],
-      "source_type": "manual",
-      "confidence": 1.0,
       "comment": "",
-      "vertex_indices_file": "ycb_025_mug_vertices/aff_body_pour_support.npy"
-    }
-  ],
-  "contact_region_masks": [],
-  "candidate_poses": [
+      "source_type": "auto",
+      "vertex_indices_file": "ycb_025_mug_vertices/part_handle.npy"
+    },
     {
-      "pose_id": "pose_grasp_01",
-      "name": "grasp_01",
-      "translation": [
-        0.0,
-        0.0,
-        0.04
+      "part_id": "part_rim",
+      "name": "rim",
+      "vertex_indices": [],
+      "face_indices": [],
+      "visible": true,
+      "color": [
+        0.7843137254901961,
+        0.7843137254901961,
+        0.19607843137254902,
+        0.7843137254901961
       ],
-      "rotation_xyzw": [
-        0.0,
-        0.0,
-        0.0,
-        1.0
+      "comment": "",
+      "source_type": "auto",
+      "vertex_indices_file": "ycb_025_mug_vertices/part_rim.npy"
+    },
+    {
+      "part_id": "part_base",
+      "name": "base",
+      "vertex_indices": [],
+      "face_indices": [],
+      "visible": true,
+      "color": [
+        0.39215686274509803,
+        0.39215686274509803,
+        0.39215686274509803,
+        0.7843137254901961
       ],
-      "linked_affordance_id": "aff_body_pour_support",
-      "linked_mask_id": "",
-      "semantic_tags": [],
-      "grasp_type": "pinch",
-      "hand_role": "right",
-      "confidence": 1.0,
-      "approved": false,
-      "comment": ""
+      "comment": "",
+      "source_type": "auto",
+      "vertex_indices_file": "ycb_025_mug_vertices/part_base.npy"
     }
   ],
+  "affordances": [],
+  "contact_region_masks": [],
+  "candidate_poses": [],
   "annotator": "고광은",
-  "review_status": "draft",
-  "updated_at": "2026-03-27T06:15:49.754833+00:00"
+  "review_status": "approved",
+  "updated_at": "2026-03-30T04:40:34.351551+00:00",
+  "review_history": [
+    {
+      "from": "draft",
+      "to": "in_review",
+      "by": "고광은",
+      "at": "2026-03-30T04:39:23.702440+00:00"
+    },
+    {
+      "from": "in_review",
+      "to": "reviewed",
+      "by": "고광은",
+      "at": "2026-03-30T04:39:56.672839+00:00"
+    },
+    {
+      "from": "reviewed",
+      "to": "approved",
+      "by": "고광은",
+      "at": "2026-03-30T04:40:24.072213+00:00"
+    }
+  ]
 }

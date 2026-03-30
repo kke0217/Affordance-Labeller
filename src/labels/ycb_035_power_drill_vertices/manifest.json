@@ -1,0 +1,92 @@
+{
+  "manifest_version": "1.0",
+  "created_at": "2026-03-30T05:41:00.375209+00:00",
+  "file_count": 17,
+  "files": {
+    "ycb_035_power_drill.json": {
+      "type": "label_json",
+      "size": 4934,
+      "sha256": "5e7d7c8bccaea3101a7ecce91349aca2aba04a543ccf5b021e43cbaa19d1b74a"
+    },
+    "ycb_035_power_drill_vertices/aff_battery_graspable.npy": {
+      "type": "vertex_indices",
+      "size": 308700,
+      "sha256": "3a2174731c90567ad02fcc7701add9e42bd66dda11faeef34b2413681d044bd5"
+    },
+    "ycb_035_power_drill_vertices/aff_body_non_affordance.npy": {
+      "type": "vertex_indices",
+      "size": 279756,
+      "sha256": "d511179ed4a61c7b986c972c0e19f2dd30090800f847f1fde1cfdaa509040f52"
+    },
+    "ycb_035_power_drill_vertices/aff_fan_handover_region.npy": {
+      "type": "vertex_indices",
+      "size": 208080,
+      "sha256": "0dadd8f0ba1ff7c38b45626fb16334b12055062ed446c70540022b7bd0330330"
+    },
+    "ycb_035_power_drill_vertices/aff_handle_palm_graspable.npy": {
+      "type": "vertex_indices",
+      "size": 108208,
+      "sha256": "2707a6590c05b21400d579cdea0b5824e64faa2102812e0c2a9947460091802f"
+    },
+    "ycb_035_power_drill_vertices/aff_handle_thumb_graspable.npy": {
+      "type": "vertex_indices",
+      "size": 101156,
+      "sha256": "5fdaf47554d6b5fce4105d62ca8185b703bae92a72591c893618d15f134996ba"
+    },
+    "ycb_035_power_drill_vertices/aff_head_placeable.npy": {
+      "type": "vertex_indices",
+      "size": 252560,
+      "sha256": "dac77b774a6a0da0f1378301cf0917421659c3af5e054c517b3d129fa14685f4"
+    },
+    "ycb_035_power_drill_vertices/mask_body_power_handle_thumb_handle_palm_patch_a.npy": {
+      "type": "vertex_indices",
+      "size": 101156,
+      "sha256": "5fdaf47554d6b5fce4105d62ca8185b703bae92a72591c893618d15f134996ba"
+    },
+    "ycb_035_power_drill_vertices/mask_body_power_handle_thumb_handle_palm_patch_b.npy": {
+      "type": "vertex_indices",
+      "size": 108208,
+      "sha256": "2707a6590c05b21400d579cdea0b5824e64faa2102812e0c2a9947460091802f"
+    },
+    "ycb_035_power_drill_vertices/mask_handle_pinch_body_fan_patch_a.npy": {
+      "type": "vertex_indices",
+      "size": 279756,
+      "sha256": "d511179ed4a61c7b986c972c0e19f2dd30090800f847f1fde1cfdaa509040f52"
+    },
+    "ycb_035_power_drill_vertices/mask_handle_pinch_body_fan_patch_b.npy": {
+      "type": "vertex_indices",
+      "size": 208080,
+      "sha256": "0dadd8f0ba1ff7c38b45626fb16334b12055062ed446c70540022b7bd0330330"
+    },
+    "ycb_035_power_drill_vertices/part_battery.npy": {
+      "type": "vertex_indices",
+      "size": 308700,
+      "sha256": "3a2174731c90567ad02fcc7701add9e42bd66dda11faeef34b2413681d044bd5"
+    },
+    "ycb_035_power_drill_vertices/part_body.npy": {
+      "type": "vertex_indices",
+      "size": 279756,
+      "sha256": "d511179ed4a61c7b986c972c0e19f2dd30090800f847f1fde1cfdaa509040f52"
+    },
+    "ycb_035_power_drill_vertices/part_fan.npy": {
+      "type": "vertex_indices",
+      "size": 208080,
+      "sha256": "0dadd8f0ba1ff7c38b45626fb16334b12055062ed446c70540022b7bd0330330"
+    },
+    "ycb_035_power_drill_vertices/part_handle_palm.npy": {
+      "type": "vertex_indices",
+      "size": 108208,
+      "sha256": "2707a6590c05b21400d579cdea0b5824e64faa2102812e0c2a9947460091802f"
+    },
+    "ycb_035_power_drill_vertices/part_handle_thumb.npy": {
+      "type": "vertex_indices",
+      "size": 101156,
+      "sha256": "5fdaf47554d6b5fce4105d62ca8185b703bae92a72591c893618d15f134996ba"
+    },
+    "ycb_035_power_drill_vertices/part_head.npy": {
+      "type": "vertex_indices",
+      "size": 252560,
+      "sha256": "dac77b774a6a0da0f1378301cf0917421659c3af5e054c517b3d129fa14685f4"
+    }
+  }
+}

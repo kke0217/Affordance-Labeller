@@ -1,22 +1,37 @@
 {
   "manifest_version": "1.0",
-  "created_at": "2026-03-27T06:15:49.850810+00:00",
-  "file_count": 3,
+  "created_at": "2026-03-30T04:40:34.408997+00:00",
+  "file_count": 6,
   "files": {
     "ycb_025_mug.json": {
       "type": "label_json",
-      "size": 1797,
-      "sha256": "1c5eb311480b983a36550aaa14f3049a9016a34fc7a45df3b518c1c953b41744"
+      "size": 2596,
+      "sha256": "c7cf1f0f578eb55d1fb45ad49cdc59a7a4262237ebf016a9c1fff107d4559f60"
     },
     "ycb_025_mug_vertices/aff_body_pour_support.npy": {
       "type": "vertex_indices",
       "size": 829204,
       "sha256": "493b2d26b51980abbdee6eb6edf04e5e5f5540077bf834c71b060823b4353f0c"
     },
+    "ycb_025_mug_vertices/part_base.npy": {
+      "type": "vertex_indices",
+      "size": 192340,
+      "sha256": "ad0ab17581a8ff06858aa2c119d740a4bf5f9107da0b47d5b5e8d280adb81cff"
+    },
     "ycb_025_mug_vertices/part_body.npy": {
       "type": "vertex_indices",
-      "size": 835864,
-      "sha256": "b655436574a2f5c84af845b15f0468bf3e8a8c1aa2f596007b1295b9b5d1e79d"
+      "size": 662116,
+      "sha256": "6a6ce50377db95a398603ac40aa0b60b54c925e6fba4c78d24d94dfab55f5f5b"
+    },
+    "ycb_025_mug_vertices/part_handle.npy": {
+      "type": "vertex_indices",
+      "size": 41324,
+      "sha256": "882a3a523c2745b2c3a2e8269cfb02d6937af6bebaf38c6e27f33a29f5ba7400"
+    },
+    "ycb_025_mug_vertices/part_rim.npy": {
+      "type": "vertex_indices",
+      "size": 153292,
+      "sha256": "e2a50a5eb3b1ddbf779ddf84743f28a48504b3f5b383e882fdf3a05d22558fd0"
     }
   }
 }

@@ -56,7 +56,7 @@ python app/main.py --mesh assets/ycb/025_mug/google_512k/nontextured.ply --label
 ## 라벨링 워크플로우
 
 ```
-Part 정의 → Affordance 할당 → Contact Mask → Pose 배치 → Save
+1. Object Info → 2. Parts → 3. Affordances → 4. Contact Masks → 5. Poses → Save
 ```
 
 ### 1. Part 정의
@@ -64,7 +64,9 @@ Part 정의 → Affordance 할당 → Contact Mask → Pose 배치 → Save
 - **Auto Semantic Segment (mug)**: mug 전용, body/handle/rim/base 의미적 분류
 - **Auto Geometric Segment**: K-means + 법선 기반 범용 분할 (클러스터 수 조절 가능)
 - **수동 Painting**: Part Name 입력 → Add → Paint → 클릭/드래그로 칠하기
-- **Rename**: 자동 분할 후 region_0 → grip 등으로 이름 변경
+- **Rename**: 자동 분할 후 region_0 → grip 등으로 이름 변경 (색상 보존)
+- **3D 범례**: 좌측 상단에 part/affordance/mask 색상 범례 실시간 표시
+- **Provenance**: 자동 분할(🤖) vs 수동(✋) 구분 기록
 
 ### 2. Affordance 할당
 
@@ -90,10 +92,12 @@ Target Part 선택 → Affordance Class + Semantic Tag 지정 → Assign
 
 **회전 편집**: Select Pose → Roll/Pitch/Yaw 슬라이더로 실시간 회전
 
-### 5. Save / Load
+### 5. Save / Load / Export
 
-- Save: JSON 메타데이터 + .npy vertex 바이너리 + manifest.json (checksum)
-- Load: manifest 기반 무결성 검증 + 색상 오버레이 자동 복원
+- **Save**: JSON 메타데이터 + .npy vertex 바이너리 + manifest.json (checksum)
+- **Load**: manifest 기반 무결성 검증 + 색상 오버레이 자동 복원
+- **Export Bundle**: JSON + .npy + manifest를 .zip으로 묶어 공유/백업
+- **Review Workflow**: draft → in_review → reviewed → approved 단계별 전환 (validation 차단 포함)
 
 ## 기술 스택
 
@@ -185,7 +189,8 @@ object_id → parts → affordances → contact_region_masks → candidate_poses
 | Phase 2 | 완료 | AppState + 모듈 분리 + .npy + click-to-paint + pose gizmo |
 | Phase 3 Sprint A | 완료 | PyVista+Trame 전환 + bundle manifest |
 | Phase 3 Sprint B | 완료 | K-means 자동 분할 + PCA patch 제안 + rename + legend |
-| Phase 3 Sprint C/D | 미진행 | RLDS/LeRobot export + confidence |
+| Phase 3 Sprint C | 완료 | Review workflow + bundle .zip export + export mapping memo |
+| Phase 3 Sprint D | 미진행 | confidence heuristic + 렌더링 최적화 |
 | Phase 4 | 구상 | VR + Isaac Sim 자동 라벨링 |
 
 ## 개발자

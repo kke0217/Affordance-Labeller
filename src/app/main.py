@@ -305,11 +305,17 @@ class AffordanceApp:
         if any(p["name"] == new_name for p in self.label["parts"]):
             self.state.status_msg = f"Rename: '{new_name}' 이미 존재"
             return
-        # part 이름 + ID 변경
+        # part 이름 + ID 변경 (색상은 기존 유지)
         old_id = part["part_id"]
+        old_color = part.get("color", None)  # 기존 색상 보존
         part["name"] = new_name
         part["part_id"] = f"part_{new_name}"
-        part["color"] = [c / 255.0 for c in get_part_color(new_name)]
+        # 기존 색상 유지 — rename으로 색이 바뀌지 않도록
+        if old_color:
+            # get_part_color 팔레트에 새 이름도 같은 색으로 등록
+            from viewer import _custom_color_index, CUSTOM_PART_COLORS, PART_COLORS
+            if old_name in _custom_color_index:
+                _custom_color_index[new_name] = _custom_color_index[old_name]
         # affordance, mask의 part_ref도 갱신
         for aff in self.label.get("affordances", []):
             if aff.get("part_ref") == old_id:
@@ -318,6 +324,7 @@ class AffordanceApp:
             if mask.get("part_ref") == old_id:
                 mask["part_ref"] = part["part_id"]
         self.viewer.update_colors(self.label)
+        self._update_legend()
         self.ctrl.view_update()
         self.state.current_part = new_name
         self._refresh_parts_ui()
@@ -699,7 +706,7 @@ class AffordanceApp:
                     with vuetify3.VCol(cols=3, style="overflow-y: auto; max-height: calc(100vh - 48px); background: #fafafa;"):
 
                         # --- Object Info ---
-                        vuetify3.VCardTitle("Object Info", class_="text-subtitle-2 pa-1")
+                        vuetify3.VCardTitle("1. Object Info", class_="text-subtitle-2 pa-1 font-weight-bold")
                         vuetify3.VTextField(v_model=("object_id",), label="Object ID", density="compact", class_="mx-2", hide_details=True)
                         vuetify3.VTextField(v_model=("annotator",), label="Annotator", density="compact", class_="mx-2 mt-1", hide_details=True)
                         vuetify3.VSelect(v_model=("review_status",), label="Review", items=("['draft','in_review','reviewed','approved']",), density="compact", class_="mx-2 mt-1", hide_details=True)
@@ -708,8 +715,8 @@ class AffordanceApp:
                         vuetify3.VDivider(class_="my-2")
 
                         # --- Parts ---
-                        vuetify3.VCardTitle("Parts", class_="text-subtitle-2 pa-1")
-                        vuetify3.VBtn("Auto Semantic Segment (mug)", click=self.auto_segment, color="purple", size="small", block=True, class_="mx-2")
+                        vuetify3.VCardTitle("2. Parts", class_="text-subtitle-2 pa-1 font-weight-bold")
+                        vuetify3.VBtn("Auto Semantic Segment", click=self.auto_segment, color="purple", size="small", block=True, class_="mx-2")
                         vuetify3.VSlider(v_model=("n_clusters", 4), label="Clusters", min=2, max=8, step=1, hide_details=True, class_="mx-2")
                         vuetify3.VBtn("Auto Geometric Segment", click=self.auto_segment_generic_action, color="teal", size="small", block=True, class_="mx-2")
                         vuetify3.VTextField(v_model=("current_part",), label="Part Name", density="compact", class_="mx-2 mt-1", hide_details=True)
@@ -735,7 +742,7 @@ class AffordanceApp:
                         vuetify3.VDivider(class_="my-2")
 
                         # --- Affordances ---
-                        vuetify3.VCardTitle("Affordances", class_="text-subtitle-2 pa-1")
+                        vuetify3.VCardTitle("3. Affordances", class_="text-subtitle-2 pa-1 font-weight-bold")
                         vuetify3.VSelect(v_model=("aff_part",), label="Target Part", items=("part_options",), density="compact", class_="mx-2", hide_details=True)
                         vuetify3.VSelect(v_model=("aff_class",), label="Class", items=("['graspable','pour_support','handover_region','placeable','non_affordance']",), density="compact", class_="mx-2 mt-1", hide_details=True)
                         vuetify3.VSelect(v_model=("aff_tag",), label="Tag", items=("['pick_up','pour_ready','handover_ready','reposition_only','place_down','tilt']",), density="compact", class_="mx-2 mt-1", hide_details=True)
@@ -745,7 +752,7 @@ class AffordanceApp:
                         vuetify3.VDivider(class_="my-2")
 
                         # --- Contact Masks ---
-                        vuetify3.VCardTitle("Contact Masks", class_="text-subtitle-2 pa-1")
+                        vuetify3.VCardTitle("4. Contact Masks", class_="text-subtitle-2 pa-1 font-weight-bold")
                         vuetify3.VSelect(v_model=("mask_type",), label="Mask Type", items=("['handle_pinch','body_power','rim_control','custom']",), density="compact", class_="mx-2", hide_details=True)
                         vuetify3.VSelect(v_model=("mask_patch_a_part",), label="Patch A Part", items=("part_options",), density="compact", class_="mx-2 mt-1", hide_details=True)
                         vuetify3.VSelect(v_model=("patch_a_role",), label="A finger", items=("['thumb','index','index_middle','palm','all_fingers']",), density="compact", class_="mx-2 mt-1", hide_details=True)
@@ -760,7 +767,7 @@ class AffordanceApp:
                         vuetify3.VDivider(class_="my-2")
 
                         # --- Poses ---
-                        vuetify3.VCardTitle("Poses", class_="text-subtitle-2 pa-1")
+                        vuetify3.VCardTitle("5. Poses", class_="text-subtitle-2 pa-1 font-weight-bold")
                         vuetify3.VTextField(v_model=("pose_name",), label="Name", density="compact", class_="mx-2", hide_details=True)
                         vuetify3.VSelect(v_model=("pose_grasp_type",), label="Grasp", items=("['pinch','power','lateral','hook','precision','custom']",), density="compact", class_="mx-2 mt-1", hide_details=True)
                         vuetify3.VSelect(v_model=("pose_hand",), label="Hand", items=("['left','right','either']",), density="compact", class_="mx-2 mt-1", hide_details=True)
